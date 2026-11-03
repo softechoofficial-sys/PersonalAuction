@@ -18,6 +18,7 @@ import java.util.List;
 public class AuctionScreen extends Screen {
     private EditBox priceField;
     private EditBox durationField;
+    private Button endAuctionButton;
     private String errorMessage = "";
     private final List<Item> selectableItems = new ArrayList<>();
     private int selectedItemIndex = 0;
@@ -46,6 +47,11 @@ public class AuctionScreen extends Screen {
         for (AbstractWidget widget : creatorWidgets) {
             widget.visible = canCreate;
             widget.active = canCreate;
+        }
+        if (endAuctionButton != null) {
+            boolean showEndButton = canCreate && !activeAuctionItemId.isEmpty();
+            endAuctionButton.visible = showEndButton;
+            endAuctionButton.active = showEndButton;
         }
     }
 
@@ -89,8 +95,14 @@ public class AuctionScreen extends Screen {
                 .bounds(center - 100, this.height / 2 + 34, 200, 20).build();
         addRenderableWidget(start);
         creatorWidgets.add(start);
+        endAuctionButton = Button.builder(Component.literal("Auktion Beenden"), button -> {
+                    ClientPlayNetworking.send(new AuctionEndPayload());
+                    errorMessage = "Anfrage zum Beenden der Auktion gesendet.";
+                })
+                .bounds(center - 100, this.height / 2 + 60, 200, 20).build();
+        addRenderableWidget(endAuctionButton);
         addRenderableWidget(Button.builder(Component.literal("Schließen"), button -> onClose())
-                .bounds(center - 100, this.height / 2 + 60, 200, 20).build());
+                .bounds(center - 100, this.height / 2 + 86, 200, 20).build());
         updateCreatorVisibility();
         ClientPlayNetworking.send(new AuctionStatusRequestPayload());
     }
