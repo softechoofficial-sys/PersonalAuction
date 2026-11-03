@@ -216,8 +216,7 @@ public class AuctionScreen extends Screen {
 
         minPriceField = new EditBox(this.font, left + 16, top + 153, 190, 20, Component.literal("Mindeststartpreis"));
         minPriceField.setMaxLength(12);
-        minPriceField.setValue("0");
-        minPriceField.setHint(Component.literal("$"));
+        minPriceField.setHint(Component.empty());
         addRenderableWidget(minPriceField);
 
         durationField = new EditBox(this.font, left + 16, top + 192, 190, 20, Component.literal("Dauer"));
@@ -350,7 +349,7 @@ public class AuctionScreen extends Screen {
 
         graphics.fill(left + 14, top + 128, left + 206, top + 130, 0xFF58758F);
         graphics.text(this.font, "Mindeststartpreis ($)", left + 16, top + 141, 0xFFB8C3D1, true);
-        graphics.text(this.font, "Dauer (Min.)", left + 16, top + 180, 0xFFB8C3D1, true);
+        graphics.text(this.font, "Dauer (Min)", left + 16, top + 180, 0xFFB8C3D1, true);
 
         graphics.text(this.font, "ZAHLUNGEN", left + 224, top + 43, 0xFF91A9C5, true);
         graphics.text(this.font, "GEWINNER", left + 224, top + 64, 0xFF91A9C5, true);
