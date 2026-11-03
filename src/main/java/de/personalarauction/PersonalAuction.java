@@ -93,7 +93,6 @@ public class PersonalAuction implements ModInitializer {
         Properties properties = new Properties();
         try (InputStream input = Files.newInputStream(saveFile)) {
             properties.load(input);
-            lastResult = properties.getProperty("lastResult", "Noch keine Auktion beendet.");
             String itemName = properties.getProperty("auction.item");
             if (itemName != null) {
                 int price = Integer.parseInt(properties.getProperty("auction.price"));
@@ -115,7 +114,6 @@ public class PersonalAuction implements ModInitializer {
     private static void saveState() {
         if (saveFile == null) return;
         Properties properties = new Properties();
-        properties.setProperty("lastResult", lastResult);
         if (!AUCTIONS.isEmpty()) {
             Auction auction = AUCTIONS.get(0);
             properties.setProperty("auction.item", auction.itemName);
