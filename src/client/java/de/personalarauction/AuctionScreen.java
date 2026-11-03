@@ -20,6 +20,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.Comparator;
 import java.util.Properties;
 
 public class AuctionScreen extends Screen {
@@ -36,6 +39,8 @@ public class AuctionScreen extends Screen {
     private static long auctionEndAt;
     private static String lastResult = "";
     private static String paymentNotice = "";
+    private static final Map<String, Long> paymentTotals = new LinkedHashMap<>();
+    private int paymentScroll = 0;
     private static Path saveFile;
 
     public AuctionScreen() {
@@ -45,13 +50,36 @@ public class AuctionScreen extends Screen {
         loadState();
     }
 
-    public static void setPaymentNotice(String message) {
-        paymentNotice = message;
+    public static void setPaymentNotice(String sender, String amountText) {
+        if (!hasActiveAuction()) return;
+        try {
+            long amount = Long.parseLong(amountText.replaceAll("[^0-9]", ""));
+            if (amount <= 0) return;
+            paymentTotals.merge(sender, amount, Long::sum);
+            paymentNotice = "Zahlung von " + sender + " erkannt: +" + amount + " Cash";
+            saveState();
+        } catch (NumberFormatException ignored) {
+            paymentNotice = "Zahlung erkannt, Betrag konnte nicht gelesen werden.";
+        }
+    }
+
+    private static List<Map.Entry<String, Long>> getRankedPayments() {
+        return paymentTotals.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder()))
+                .toList();
+    }
+
+    private static String getCurrentWinner() {
+        List<Map.Entry<String, Long>> ranked = getRankedPayments();
+        return ranked.isEmpty() ? "Noch keine Zahlungen" :
+                ranked.get(0).getKey() + " – " + ranked.get(0).getValue() + " Cash";
     }
 
     public static void tickAuction() {
         if (!activeItemId.isEmpty() && auctionEndAt > 0 && System.currentTimeMillis() >= auctionEndAt) {
-            lastResult = "Auktion beendet: " + activeItemName + " | Kein Verkauf (keine Gebote).";
+            lastResult = paymentTotals.isEmpty()
+                    ? "Auktion beendet: " + activeItemName + " | Kein Verkauf."
+                    : "Auktion beendet: " + activeItemName + " | Gewinner: " + getCurrentWinner();
             clearActiveAuction();
             saveState();
         }
@@ -87,6 +115,13 @@ public class AuctionScreen extends Screen {
         try (InputStream input = Files.newInputStream(file)) {
             properties.load(input);
             lastResult = properties.getProperty("auction.lastResult", "");
+            paymentTotals.clear();
+            int paymentCount = Integer.parseInt(properties.getProperty("auction.paymentCount", "0"));
+            for (int i = 0; i < paymentCount; i++) {
+                String player = properties.getProperty("auction.payment." + i + ".player");
+                long total = Long.parseLong(properties.getProperty("auction.payment." + i + ".total", "0"));
+                if (player != null && total > 0) paymentTotals.put(player, total);
+            }
             activeItemId = properties.getProperty("auction.item", "");
             activeItemName = properties.getProperty("auction.itemName", "");
             activeStartPrice = Integer.parseInt(properties.getProperty("auction.price", "0"));
@@ -119,6 +154,13 @@ public class AuctionScreen extends Screen {
             properties.setProperty("auction.itemName", activeItemName);
             properties.setProperty("auction.price", Integer.toString(activeStartPrice));
             properties.setProperty("auction.endAt", Long.toString(auctionEndAt));
+            properties.setProperty("auction.paymentCount", Integer.toString(paymentTotals.size()));
+            int paymentIndex = 0;
+            for (Map.Entry<String, Long> entry : paymentTotals.entrySet()) {
+                properties.setProperty("auction.payment." + paymentIndex + ".player", entry.getKey());
+                properties.setProperty("auction.payment." + paymentIndex + ".total", Long.toString(entry.getValue()));
+                paymentIndex++;
+            }
         }
         Path file = getSaveFile();
         try {
@@ -204,6 +246,9 @@ public class AuctionScreen extends Screen {
             activeStartPrice = price;
             auctionEndAt = System.currentTimeMillis() + duration * 60_000L;
             lastResult = "";
+            paymentTotals.clear();
+            paymentScroll = 0;
+            paymentNotice = "";
             errorMessage = "Auktion lokal gestartet.";
             saveState();
             updateEndButton();
@@ -214,7 +259,9 @@ public class AuctionScreen extends Screen {
 
     private void endAuction() {
         if (!hasActiveAuction()) return;
-        lastResult = "Auktion vorzeitig beendet: " + activeItemName + " | Kein Verkauf (keine Gebote).";
+        lastResult = paymentTotals.isEmpty()
+                ? "Auktion vorzeitig beendet: " + activeItemName + " | Kein Verkauf."
+                : "Auktion vorzeitig beendet: " + activeItemName + " | Gewinner: " + getCurrentWinner();
         clearActiveAuction();
         saveState();
         errorMessage = "Auktion lokal beendet.";
