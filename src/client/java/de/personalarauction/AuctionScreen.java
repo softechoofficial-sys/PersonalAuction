@@ -333,8 +333,17 @@ public class AuctionScreen extends Screen {
             graphics.text(this.font, "Startpreis: " + activeStartPrice + " Cash",
                     left + 16, top + 91, 0xFFFFD479, true);
         } else {
-            graphics.text(this.font, fitText(lastResult.isBlank() ? "Keine aktive Auktion" : lastResult, 180),
-                    left + 16, top + 66, 0xFFCED7E2, true);
+            if (!selectableItems.isEmpty()) {
+                Item selectedItem = selectableItems.get(Math.max(0, Math.min(selectedItemIndex, selectableItems.size() - 1)));
+                drawRoundedRect(graphics, left + 18, top + 61, 30, 30, 0xFF303E50, 6);
+                graphics.item(selectedItem.getDefaultInstance(), left + 25, top + 68);
+                graphics.text(this.font, "Ausgewähltes Item", left + 62, top + 62, 0xFF91A9C5, true);
+                graphics.text(this.font, fitText(selectedItem.getDefaultInstance().getHoverName().getString(), 140),
+                        left + 62, top + 78, 0xFFFFFFFF, true);
+            }
+            if (!lastResult.isBlank()) {
+                graphics.text(this.font, fitText(lastResult, 180), left + 16, top + 103, 0xFFCED7E2, true);
+            }
         }
 
         graphics.fill(left + 14, top + 128, left + 206, top + 130, 0xFF3C5068);
