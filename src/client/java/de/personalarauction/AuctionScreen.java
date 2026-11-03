@@ -46,7 +46,7 @@ public class AuctionScreen extends Screen {
                 .bounds(center - 100, this.height / 2 + 60, 200, 20).build());
     }
 
-    private void startAuction() {
+    private void changeSelectedSlot(int direction) {\n        selectedSlot = (selectedSlot + direction + 36) % 36;\n    }\n\n    private void startAuction() {
         try {
             int price = Integer.parseInt(priceField.getValue());
             int duration = Integer.parseInt(durationField.getValue());
