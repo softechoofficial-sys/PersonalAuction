@@ -90,30 +90,45 @@ public class PersonalAuction implements ModInitializer {
     private static void loadState() {
         AUCTIONS.clear();
         if (saveFile == null || !Files.exists(saveFile)) return;
+
         Properties properties = new Properties();
         try (InputStream input = Files.newInputStream(saveFile)) {
             properties.load(input);
-            String itemId = properties.getProperty("auction.item");
-            if (itemId != null) {
-                int price = Integer.parseInt(properties.getProperty("auction.price"));
-                long endAt = Long.parseLong(properties.getProperty("auction.endAt"));
-                Identifier identifier = Identifier.tryParse(itemId);
-                Item item = identifier == null ? null
-                        : BuiltInRegistries.ITEM.get(identifier).map(reference -> reference.value()).orElse(null);
-                if (item != null && item != Items.AIR && price > 0 && endAt > System.currentTimeMillis()) {
-                    AUCTIONS.add(new Auction(itemId, item.getDefaultInstance().getHoverName().getString(), price, endAt));
-                } else {
-                    saveState();
-                }
-            }
-        } catch (IOException | NumberFormatException exception) {
-            AUCTIONS.clear();
+        } catch (IOException | IllegalArgumentException exception) {
             System.err.println("[PersonalAuction] Konnte Auktionsdaten nicht laden: " + exception.getMessage());
+            clearSavedState();
+            return;
+        }
+
+        String itemId = properties.getProperty("auction.item");
+        if (itemId == null || itemId.isBlank()) {
+            // Alte oder unvollständige Daten entfernen: Es wird nur eine aktive Auktion gespeichert.
+            clearSavedState();
+            return;
+        }
+
+        try {
+            int price = Integer.parseInt(properties.getProperty("auction.price", ""));
+            long endAt = Long.parseLong(properties.getProperty("auction.endAt", ""));
+            Identifier identifier = Identifier.tryParse(itemId);
+            Item item = identifier == null ? null
+                    : BuiltInRegistries.ITEM.get(identifier).map(reference -> reference.value()).orElse(null);
+
+            if (item == null || item == Items.AIR || price < 1 || endAt <= System.currentTimeMillis()) {
+                clearSavedState();
+                return;
+            }
+
+            AUCTIONS.add(new Auction(itemId, item.getDefaultInstance().getHoverName().getString(), price, endAt));
+        } catch (NumberFormatException exception) {
+            System.err.println("[PersonalAuction] Ungültige gespeicherte Auktion wird verworfen: " + exception.getMessage());
+            clearSavedState();
         }
     }
 
     private static void saveState() {
         if (saveFile == null) return;
+
         Properties properties = new Properties();
         if (!AUCTIONS.isEmpty()) {
             Auction auction = AUCTIONS.get(0);
@@ -121,11 +136,12 @@ public class PersonalAuction implements ModInitializer {
             properties.setProperty("auction.price", Integer.toString(auction.startPrice));
             properties.setProperty("auction.endAt", Long.toString(auction.endAt));
         }
+
+        Path temporaryFile = saveFile.resolveSibling(saveFile.getFileName() + ".tmp");
         try {
             Files.createDirectories(saveFile.getParent());
-            Path temporaryFile = saveFile.resolveSibling(saveFile.getFileName() + ".tmp");
             try (OutputStream output = Files.newOutputStream(temporaryFile)) {
-                properties.store(output, "PersonalAuction active auction");
+                properties.store(output, "PersonalAuction active auction only");
             }
             try {
                 Files.move(temporaryFile, saveFile, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
@@ -134,6 +150,23 @@ public class PersonalAuction implements ModInitializer {
             }
         } catch (IOException exception) {
             System.err.println("[PersonalAuction] Konnte Auktionsdaten nicht speichern: " + exception.getMessage());
+            try {
+                Files.deleteIfExists(temporaryFile);
+            } catch (IOException cleanupException) {
+                System.err.println("[PersonalAuction] Temporäre Datei konnte nicht entfernt werden: "
+                        + cleanupException.getMessage());
+            }
+        }
+    }
+
+    private static void clearSavedState() {
+        if (saveFile == null) return;
+        try {
+            Files.deleteIfExists(saveFile);
+            Files.deleteIfExists(saveFile.resolveSibling(saveFile.getFileName() + ".tmp"));
+        } catch (IOException exception) {
+            System.err.println("[PersonalAuction] Konnte ungültige Auktionsdatei nicht entfernen: "
+                    + exception.getMessage());
         }
     }
 
