@@ -34,6 +34,7 @@ public class AuctionScreen extends Screen {
     private EditBox durationField;
     private EditBox minPriceField;
     private Button endAuctionButton;
+    private Button startAuctionButton;
     private Button itemPickerButton;
     private String errorMessage = "";
     private final List<Item> selectableItems = new ArrayList<>();
@@ -49,6 +50,7 @@ public class AuctionScreen extends Screen {
     private static String lastResult = "";
     private static final Map<String, Long> paymentTotals = new LinkedHashMap<>();
     private static final Map<String, Long> latePaymentTotals = new LinkedHashMap<>();
+    private static final Map<String, Long> recentPaymentNotices = new LinkedHashMap<>();
     private int paymentScroll = 0;
     private static Path saveFile;
 
@@ -91,10 +93,16 @@ public class AuctionScreen extends Screen {
     }
 
     public static void setPaymentNotice(String sender, String amountText) {
-        boolean duringAuction = hasActiveAuction();
         try {
             long amount = parseAmount(amountText);
-            if (amount <= 0) return;
+            if (amount <= 0 || sender == null || sender.isBlank()) return;
+            long now = System.currentTimeMillis();
+            String noticeKey = sender.trim().toLowerCase(java.util.Locale.ROOT) + "|" + amount;
+            Long previousNotice = recentPaymentNotices.get(noticeKey);
+            if (previousNotice != null && now - previousNotice < 2000L) return;
+            recentPaymentNotices.put(noticeKey, now);
+            recentPaymentNotices.entrySet().removeIf(entry -> now - entry.getValue() > 10_000L);
+            boolean duringAuction = isAuctionAcceptingPayments();
             if (duringAuction) {
                 paymentTotals.merge(sender, amount, Long::sum);
             } else {
@@ -121,12 +129,16 @@ public class AuctionScreen extends Screen {
             lastResult = paymentTotals.isEmpty()
                     ? "Auktion beendet: " + activeItemName + " | Kein Verkauf."
                     : "Auktion beendet: " + activeItemName + " | Gewinner: " + getCurrentWinner();
-            clearActiveAuction();
+            auctionEndAt = 0;
             saveState();
         }
     }
 
     private static boolean hasActiveAuction() {
+        return !activeItemId.isEmpty();
+    }
+
+    private static boolean isAuctionAcceptingPayments() {
         return !activeItemId.isEmpty() && auctionEndAt > System.currentTimeMillis();
     }
 
@@ -180,8 +192,7 @@ public class AuctionScreen extends Screen {
                 Identifier id = Identifier.tryParse(activeItemId);
                 Item item = id == null ? null : BuiltInRegistries.ITEM.get(id)
                         .map(reference -> reference.value()).orElse(null);
-                if (item == null || item == net.minecraft.world.item.Items.AIR
-                        || auctionEndAt <= System.currentTimeMillis()) {
+                if (item == null || item == net.minecraft.world.item.Items.AIR) {
                     clearActiveAuction();
                     if (auctionEndAt > 0 && auctionEndAt <= System.currentTimeMillis()) {
                         lastResult = "Auktion beendet: " + activeItemName + " | Kein Verkauf (keine Gebote).";
@@ -289,8 +300,9 @@ public class AuctionScreen extends Screen {
         durationField.setHint(Component.empty());
         addRenderableWidget(durationField);
 
-        addRenderableWidget(Button.builder(Component.literal("Auktion starten"), button -> startAuction())
-                .bounds(left + 12, top + 243, 96, 20).build());
+        startAuctionButton = Button.builder(Component.literal("Auktion starten"), button -> startAuction())
+                .bounds(left + 12, top + 243, 96, 20).build();
+        addRenderableWidget(startAuctionButton);
         endAuctionButton = Button.builder(Component.literal("Auktion beenden"), button -> endAuction())
                 .bounds(left + 112, top + 243, 96, 20).build();
         addRenderableWidget(endAuctionButton);
@@ -306,10 +318,17 @@ public class AuctionScreen extends Screen {
 
     private void updateEndButton() {
         updateItemPickerButton();
+        boolean active = hasActiveAuction();
         if (endAuctionButton != null) {
-            endAuctionButton.visible = hasActiveAuction();
-            endAuctionButton.active = hasActiveAuction();
+            endAuctionButton.visible = active;
+            endAuctionButton.active = active;
         }
+        if (startAuctionButton != null) {
+            startAuctionButton.visible = !active;
+            startAuctionButton.active = !active;
+        }
+        if (minPriceField != null) minPriceField.active = !active;
+        if (durationField != null) durationField.active = !active;
     }
 
     private Component getSelectedItemLabel() {
@@ -396,7 +415,7 @@ public class AuctionScreen extends Screen {
             Identifier id = Identifier.tryParse(activeItemId);
             drawItemSlot(graphics, activeItemStack, left + 18, top + 61);
             graphics.text(this.font, fitText(activeItemName, 140), left + 62, top + 62, 0xFFFFFFFF, true);
-            long seconds = Math.max(0, (auctionEndAt - System.currentTimeMillis()) / 1000);
+            long seconds = auctionEndAt <= 0 ? 0 : Math.max(0, (auctionEndAt - System.currentTimeMillis()) / 1000);
             graphics.text(this.font, "Restzeit: " + (seconds / 60) + "m " + (seconds % 60) + "s",
                     left + 62, top + 78, 0xFFB8C3D1, true);
             graphics.text(this.font, "Startpreis: $" + activeStartingPriceDisplay,
