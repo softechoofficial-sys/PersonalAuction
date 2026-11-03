@@ -382,15 +382,19 @@ public class AuctionScreen extends Screen {
     }
 
     private void endAuction() {
-        if (!hasActiveAuction()) return;
-        lastResult = hasQualifiedWinner()
-                ? "Auktion beendet: " + activeItemName + " | Gewinner: " + getCurrentWinner()
-                : "Auktion beendet: " + activeItemName + " | Kein Verkauf.";
+        // Vollständiger Reset wie direkt nach dem Server-Join.
         clearActiveAuction();
+        lastResult = "";
+        paymentTotals.clear();
+        latePaymentTotals.clear();
         selectedItemStack = null;
+        selectedItemIndex = 0;
         hasSelectedItem = false;
-        saveState();
+        paymentScroll = 0;
         errorMessage = "";
+        if (minPriceField != null) minPriceField.setValue("");
+        if (durationField != null) durationField.setValue("");
+        saveState();
         updateEndButton();
     }
 
