@@ -19,6 +19,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -123,8 +124,14 @@ public class PersonalAuction implements ModInitializer {
         }
         try {
             Files.createDirectories(saveFile.getParent());
-            try (OutputStream output = Files.newOutputStream(saveFile)) {
+            Path temporaryFile = saveFile.resolveSibling(saveFile.getFileName() + ".tmp");
+            try (OutputStream output = Files.newOutputStream(temporaryFile)) {
                 properties.store(output, "PersonalAuction state");
+            }
+            try {
+                Files.move(temporaryFile, saveFile, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException exception) {
+                Files.move(temporaryFile, saveFile, StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (IOException exception) {
             System.err.println("[PersonalAuction] Konnte Auktionsdaten nicht speichern: " + exception.getMessage());
