@@ -178,22 +178,6 @@ public class AuctionScreen extends Screen {
         tickAuction();
     }
 
-    private void drawRoundedRect(GuiGraphicsExtractor graphics, int x, int y, int width, int height,
-                                 int color, int radius) {
-        int r = Math.max(1, Math.min(radius, Math.min(width, height) / 2));
-        for (int row = 0; row < height; row++) {
-            int inset = 0;
-            if (row < r) {
-                double dy = r - row - 0.5;
-                inset = Math.max(0, r - (int) Math.floor(Math.sqrt(r * r - dy * dy)));
-            } else if (row >= height - r) {
-                double dy = row - (height - r) + 0.5;
-                inset = Math.max(0, r - (int) Math.floor(Math.sqrt(r * r - dy * dy)));
-            }
-            graphics.fill(x + inset, y + row, x + width - inset, y + row + 1, color);
-        }
-    }
-
     private String fitText(String text, int maxWidth) {
         if (text == null || text.isEmpty()) return "";
         if (this.font.width(text) <= maxWidth) return text;
@@ -201,6 +185,18 @@ public class AuctionScreen extends Screen {
         int end = text.length();
         while (end > 0 && this.font.width(text.substring(0, end) + suffix) > maxWidth) end--;
         return end == 0 ? suffix : text.substring(0, end) + suffix;
+    }
+
+    private void drawItemSlot(GuiGraphicsExtractor graphics, Item item, int x, int y) {
+        graphics.fill(x, y, x + 30, y + 30, 0xFF303E50);
+        if (item == null || item == net.minecraft.world.item.Items.AIR) return;
+
+        // Draw the 16x16 Minecraft item sprite at 1.5x (24x24), centered in the 30x30 slot.
+        graphics.pose().pushMatrix();
+        graphics.pose().translate(x + 3, y + 3);
+        graphics.pose().scale(1.5f, 1.5f);
+        graphics.item(item.getDefaultInstance(), 0, 0);
+        graphics.pose().popMatrix();
     }
 
     @Override
@@ -321,11 +317,7 @@ public class AuctionScreen extends Screen {
             Identifier id = Identifier.tryParse(activeItemId);
             Item item = id == null ? null : BuiltInRegistries.ITEM.get(id)
                     .map(reference -> reference.value()).orElse(null);
-            if (item != null && item != net.minecraft.world.item.Items.AIR) {
-                graphics.fill(left + 18, top + 61, left + 48, top + 91, 0xFF303E50);
-                // Einheitlicher 16x16-Item-Slot, mittig in einer kompakten Kachel.
-                graphics.item(item.getDefaultInstance(), left + 25, top + 68);
-            }
+            drawItemSlot(graphics, item, left + 18, top + 61);
             graphics.text(this.font, fitText(activeItemName, 140), left + 62, top + 62, 0xFFFFFFFF, true);
             long seconds = Math.max(0, (auctionEndAt - System.currentTimeMillis()) / 1000);
             graphics.text(this.font, "Restzeit: " + (seconds / 60) + "m " + (seconds % 60) + "s",
@@ -333,10 +325,11 @@ public class AuctionScreen extends Screen {
             graphics.text(this.font, "Startpreis: " + activeStartPrice + " Cash",
                     left + 16, top + 91, 0xFFFFD479, true);
         } else {
-            if (!selectableItems.isEmpty()) {
-                Item selectedItem = selectableItems.get(Math.max(0, Math.min(selectedItemIndex, selectableItems.size() - 1)));
-                drawRoundedRect(graphics, left + 18, top + 61, 30, 30, 0xFF303E50, 6);
-                graphics.item(selectedItem.getDefaultInstance(), left + 25, top + 68);
+            Item selectedItem = hasSelectedItem && !selectableItems.isEmpty()
+                    ? selectableItems.get(Math.max(0, Math.min(selectedItemIndex, selectableItems.size() - 1)))
+                    : null;
+            drawItemSlot(graphics, selectedItem, left + 18, top + 61);
+            if (selectedItem != null) {
                 graphics.text(this.font, "Ausgewähltes Item", left + 62, top + 62, 0xFF91A9C5, true);
                 graphics.text(this.font, fitText(selectedItem.getDefaultInstance().getHoverName().getString(), 140),
                         left + 62, top + 78, 0xFFFFFFFF, true);
