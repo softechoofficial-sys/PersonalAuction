@@ -13,6 +13,21 @@ public class AuctionScreen extends Screen {
     private EditBox durationField;
     private String errorMessage = "";
     private int selectedSlot = 0;
+    private static String auctionStatus = "Auktionsstatus wird geladen...";
+    private int statusRequestTicks = 0;
+
+    public static void setAuctionStatus(String message) {
+        auctionStatus = message;
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (this.minecraft.player != null && ++statusRequestTicks >= 20) {
+            statusRequestTicks = 0;
+            ClientPlayNetworking.send(new AuctionStatusRequestPayload());
+        }
+    }
 
     public AuctionScreen() {
         super(Component.literal("PersonalAuction"));
@@ -70,7 +85,7 @@ public class AuctionScreen extends Screen {
         ItemStack selectedItem = this.minecraft.player.getInventory().getItem(selectedSlot);
         String itemName = selectedItem.isEmpty() ? "Leer" : selectedItem.getHoverName().getString()
                 + " x" + selectedItem.getCount();
-        graphics.text(this.font, "Item (Slot " + selectedSlot + "): " + itemName, this.width / 2 - 75,
+        graphics.text(this.font, auctionStatus, this.width / 2 - 120, this.height / 2 - 105,\n                0xFFFFFFFF, true);\n        graphics.text(this.font, "Item (Slot " + selectedSlot + "): " + itemName, this.width / 2 - 75,
                 this.height / 2 - 76, 0xFFFFFFFF, true);
         graphics.text(this.font, "Startpreis", this.width / 2 - 100, this.height / 2 - 40,
                 0xFFAAAAAA, true);
