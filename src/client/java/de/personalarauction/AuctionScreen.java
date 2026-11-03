@@ -22,6 +22,10 @@ import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.Comparator;
 import java.util.Properties;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class AuctionScreen extends Screen {
     private EditBox durationField;
@@ -48,10 +52,41 @@ public class AuctionScreen extends Screen {
         loadState();
     }
 
+    /**
+     * Parses plain amounts and abbreviated Minecraft economy amounts:
+     * k = thousand, m = million, b = billion, t = trillion.
+     * Decimal abbreviations such as 1.5m and 1,5m are supported too.
+     */
+    private static long parseAmount(String input) {
+        if (input == null) throw new NumberFormatException("Betrag fehlt");
+        String value = input.trim().replace("$", "").replace("€", "").replaceAll("\\s+", "");
+        Matcher matcher = Pattern.compile("([+-]?(?:[0-9]+(?:[.,][0-9]*)?|[.,][0-9]+))([kKmMbBtT]?)").matcher(value);
+        if (!matcher.matches()) throw new NumberFormatException("Ungültiger Betrag");
+
+        String number = matcher.group(1);
+        String suffix = matcher.group(2).toLowerCase(java.util.Locale.ROOT);
+        BigDecimal amount;
+        if (!suffix.isEmpty()) {
+            amount = new BigDecimal(number.replace(',', '.'));
+            BigDecimal multiplier = switch (suffix) {
+                case "k" -> BigDecimal.valueOf(1_000L);
+                case "m" -> BigDecimal.valueOf(1_000_000L);
+                case "b" -> BigDecimal.valueOf(1_000_000_000L);
+                case "t" -> BigDecimal.valueOf(1_000_000_000_000L);
+                default -> throw new NumberFormatException("Unbekannte Abkürzung");
+            };
+            amount = amount.multiply(multiplier);
+        } else {
+            // Preserve support for ordinary grouped values such as 1,000 or 1.000.
+            amount = new BigDecimal(number.replace(",", "").replace(".", ""));
+        }
+        return amount.setScale(0, RoundingMode.HALF_UP).longValueExact();
+    }
+
     public static void setPaymentNotice(String sender, String amountText) {
         if (!hasActiveAuction()) return;
         try {
-            long amount = Long.parseLong(amountText.replaceAll("[^0-9]", ""));
+            long amount = parseAmount(amountText);
             if (amount <= 0) return;
             paymentTotals.merge(sender, amount, Long::sum);
             saveState();
@@ -271,7 +306,7 @@ public class AuctionScreen extends Screen {
         }
         try {
             int duration = Integer.parseInt(durationField.getValue());
-            long minPrice = Long.parseLong(minPriceField.getValue().trim());
+            long minPrice = parseAmount(minPriceField.getValue().trim());
             if (duration < 1 || duration > 10080 || minPrice < 0 || selectableItems.isEmpty() || !hasSelectedItem) {
                 throw new NumberFormatException();
             }
