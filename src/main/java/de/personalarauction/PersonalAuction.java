@@ -54,8 +54,8 @@ public class PersonalAuction implements ModInitializer {
             return;
         }
 
+        // This is a display-only auction: keep the item in the owner's inventory.
         ItemStack auctionItem = selected.copy();
-        player.getInventory().setItem(payload.slot(), ItemStack.EMPTY);
 
         long endAt = System.currentTimeMillis() + payload.durationMinutes() * 60_000L;
         activeAuction = new Auction(player.getUUID(), auctionItem.getHoverName().getString(),
