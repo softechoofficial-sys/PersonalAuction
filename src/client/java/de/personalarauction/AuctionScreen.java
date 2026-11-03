@@ -65,7 +65,7 @@ public class AuctionScreen extends Screen {
 
     private static String getCurrentWinner() {
         List<Map.Entry<String, Long>> ranked = getRankedPayments();
-        return ranked.isEmpty() ? "..." : ranked.get(0).getKey() + " – " + ranked.get(0).getValue() + " Cash";
+        return ranked.isEmpty() ? "..." : ranked.get(0).getKey();
     }
 
     public static void tickAuction() {
@@ -181,9 +181,12 @@ public class AuctionScreen extends Screen {
         graphics.fill(x - 1, y - 1, x + 31, y + 31, 0xFF8FC9EE);
         graphics.fill(x, y, x + 30, y + 30, 0xFF263746);
         if (item == null || item == net.minecraft.world.item.Items.AIR) {
+            float scale = 2.3f;
+            float textWidth = this.font.width("?") * scale;
+            float textHeight = this.font.lineHeight * scale;
             graphics.pose().pushMatrix();
-            graphics.pose().translate(x + 9, y + 6);
-            graphics.pose().scale(2.0f, 2.0f);
+            graphics.pose().translate(x + (30.0f - textWidth) / 2.0f, y + (30.0f - textHeight) / 2.0f);
+            graphics.pose().scale(scale, scale);
             graphics.text(this.font, "?", 0, 0, 0xFFB8E2FF, true);
             graphics.pose().popMatrix();
             return;
