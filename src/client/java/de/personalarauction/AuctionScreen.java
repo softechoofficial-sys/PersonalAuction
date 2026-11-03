@@ -50,7 +50,6 @@ public class AuctionScreen extends Screen {
     private static String lastResult = "";
     private static final Map<String, Long> paymentTotals = new LinkedHashMap<>();
     private static final Map<String, Long> latePaymentTotals = new LinkedHashMap<>();
-    private static final Map<String, Long> recentPaymentNotices = new LinkedHashMap<>();
     private int paymentScroll = 0;
     private static Path saveFile;
 
@@ -96,12 +95,6 @@ public class AuctionScreen extends Screen {
         try {
             long amount = parseAmount(amountText);
             if (amount <= 0 || sender == null || sender.isBlank()) return;
-            long now = System.currentTimeMillis();
-            String noticeKey = sender.trim().toLowerCase(java.util.Locale.ROOT) + "|" + amount;
-            Long previousNotice = recentPaymentNotices.get(noticeKey);
-            if (previousNotice != null && now - previousNotice < 2000L) return;
-            recentPaymentNotices.put(noticeKey, now);
-            recentPaymentNotices.entrySet().removeIf(entry -> now - entry.getValue() > 10_000L);
             boolean duringAuction = isAuctionAcceptingPayments();
             if (duringAuction) {
                 paymentTotals.merge(sender, amount, Long::sum);
@@ -167,7 +160,6 @@ public class AuctionScreen extends Screen {
         lastResult = "";
         paymentTotals.clear();
         latePaymentTotals.clear();
-        recentPaymentNotices.clear();
         saveState();
     }
 
