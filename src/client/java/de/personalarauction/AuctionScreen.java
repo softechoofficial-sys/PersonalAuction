@@ -48,7 +48,7 @@ public class AuctionScreen extends Screen {
     private static String activeStartingPriceDisplay = "";
     private static String lastResult = "";
     private static final Map<String, Long> paymentTotals = new LinkedHashMap<>();
-    private static final Set<String> latePaymentSenders = new LinkedHashSet<>();
+    private static final Map<String, Long> latePaymentTotals = new LinkedHashMap<>();
     private int paymentScroll = 0;
     private static Path saveFile;
 
@@ -95,8 +95,11 @@ public class AuctionScreen extends Screen {
         try {
             long amount = parseAmount(amountText);
             if (amount <= 0) return;
-            paymentTotals.merge(sender, amount, Long::sum);
-            if (!duringAuction) latePaymentSenders.add(sender);
+            if (duringAuction) {
+                paymentTotals.merge(sender, amount, Long::sum);
+            } else {
+                latePaymentTotals.merge(sender, amount, Long::sum);
+            }
             saveState();
         } catch (NumberFormatException ignored) {
         }
@@ -155,11 +158,12 @@ public class AuctionScreen extends Screen {
             properties.load(input);
             lastResult = properties.getProperty("auction.lastResult", "");
             paymentTotals.clear();
-            latePaymentSenders.clear();
+            latePaymentTotals.clear();
             int latePaymentCount = Integer.parseInt(properties.getProperty("auction.latePaymentCount", "0"));
             for (int i = 0; i < latePaymentCount; i++) {
-                String player = properties.getProperty("auction.latePayment." + i);
-                if (player != null) latePaymentSenders.add(player);
+                String player = properties.getProperty("auction.latePayment." + i + ".player");
+                long total = Long.parseLong(properties.getProperty("auction.latePayment." + i + ".total", "0"));
+                if (player != null && total > 0) latePaymentTotals.put(player, total);
             }
             int paymentCount = Integer.parseInt(properties.getProperty("auction.paymentCount", "0"));
             for (int i = 0; i < paymentCount; i++) {
@@ -204,10 +208,11 @@ public class AuctionScreen extends Screen {
             properties.setProperty("auction.startingPriceDisplay", activeStartingPriceDisplay);
         }
         properties.setProperty("auction.paymentCount", Integer.toString(paymentTotals.size()));
-        properties.setProperty("auction.latePaymentCount", Integer.toString(latePaymentSenders.size()));
+        properties.setProperty("auction.latePaymentCount", Integer.toString(latePaymentTotals.size()));
         int lateIndex = 0;
-        for (String player : latePaymentSenders) {
-            properties.setProperty("auction.latePayment." + lateIndex, player);
+        for (Map.Entry<String, Long> entry : latePaymentTotals.entrySet()) {
+            properties.setProperty("auction.latePayment." + lateIndex + ".player", entry.getKey());
+            properties.setProperty("auction.latePayment." + lateIndex + ".total", Long.toString(entry.getValue()));
             lateIndex++;
         }
         int paymentIndex = 0;
@@ -343,7 +348,7 @@ public class AuctionScreen extends Screen {
             activeStartingPriceDisplay = minPriceField.getValue().trim();
             lastResult = "";
             paymentTotals.clear();
-            latePaymentSenders.clear();
+            latePaymentTotals.clear();
             paymentScroll = 0;
             errorMessage = "";
             saveState();
@@ -425,23 +430,31 @@ public class AuctionScreen extends Screen {
         graphics.fill(left + 222, top + 114, right - 14, top + 115, 0xFF3C5068);
 
         List<Map.Entry<String, Long>> ranked = getRankedPayments();
+        List<Map.Entry<String, Long>> latePayments = new ArrayList<>(latePaymentTotals.entrySet());
+        int totalRows = ranked.size() + latePayments.size();
         int visibleRows = 8;
-        int maxScroll = Math.max(0, ranked.size() - visibleRows);
+        int maxScroll = Math.max(0, totalRows - visibleRows);
         paymentScroll = Math.max(0, Math.min(paymentScroll, maxScroll));
-        for (int i = paymentScroll; i < Math.min(ranked.size(), paymentScroll + visibleRows); i++) {
-            Map.Entry<String, Long> entry = ranked.get(i);
-            int rowY = top + 123 + (i - paymentScroll) * 15;
-            if (i == 0) graphics.fill(left + 220, rowY - 3, right - 14, rowY + 12, 0xFF29483F);
-            graphics.text(this.font, fitText((i + 1) + ". " + entry.getKey(), 112), left + 224, rowY,
-                    latePaymentSenders.contains(entry.getKey()) ? 0xFFFF6B6B : (i == 0 ? 0xFF65E6A5 : 0xFFE0E6ED), true);
+        for (int row = paymentScroll; row < Math.min(totalRows, paymentScroll + visibleRows); row++) {
+            boolean late = row >= ranked.size();
+            Map.Entry<String, Long> entry = late
+                    ? latePayments.get(row - ranked.size())
+                    : ranked.get(row);
+            int rowY = top + 123 + (row - paymentScroll) * 15;
+            if (!late && row == 0) graphics.fill(left + 220, rowY - 3, right - 14, rowY + 12, 0xFF29483F);
+            String playerLabel = late
+                    ? (ranked.size() + (row - ranked.size()) + 1) + ". " + entry.getKey() + " (nach Auktion)"
+                    : (row + 1) + ". " + entry.getKey();
+            int rowColor = late ? 0xFFFF6B6B : (row == 0 ? 0xFF65E6A5 : 0xFFE0E6ED);
+            graphics.text(this.font, fitText(playerLabel, 112), left + 224, rowY, rowColor, true);
             String total = fitText("$" + entry.getValue(), 66);
             graphics.text(this.font, total, right - 16 - this.font.width(total), rowY,
-                    0xFFFFD479, true);
+                    late ? 0xFFFF6B6B : 0xFFFFD479, true);
         }
-        if (ranked.isEmpty()) {
+        if (totalRows == 0) {
             graphics.text(this.font, "...", left + 224, top + 126, 0xFF8795A7, true);
-        } else if (ranked.size() > visibleRows) {
-            graphics.text(this.font, "Mausrad: Liste scrollen (" + ranked.size() + " Spieler)",
+        } else if (totalRows > visibleRows) {
+            graphics.text(this.font, "Mausrad: Liste scrollen (" + totalRows + " Zahlungen)",
                     left + 224, bottom - 18, 0xFF8795A7, true);
         }
         if (!errorMessage.isEmpty()) {
@@ -457,7 +470,7 @@ public class AuctionScreen extends Screen {
         int left = this.width / 2 - 210;
         int top = this.height / 2 - 125;
         if (mouseX >= left + 215 && mouseX <= left + 415 && mouseY >= top + 116 && mouseY <= top + 245) {
-            int maxScroll = Math.max(0, getRankedPayments().size() - 8);
+            int maxScroll = Math.max(0, getRankedPayments().size() + latePaymentTotals.size() - 8);
             paymentScroll = Math.max(0, Math.min(maxScroll, paymentScroll - (int) Math.signum(verticalAmount)));
             return true;
         }
