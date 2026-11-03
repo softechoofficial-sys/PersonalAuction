@@ -29,7 +29,8 @@ public class PersonalAuction implements ModInitializer {
     public static final String MOD_ID = "personalauction";
     private static final List<Auction> AUCTIONS = new ArrayList<>();
     private static Path saveFile;
-    // Nur im Arbeitsspeicher für die aktuelle Sitzung; wird nie gespeichert.\n    private static String lastResult = "";
+    // Nur im Arbeitsspeicher für die aktuelle Sitzung; wird nie gespeichert.
+    private static String lastResult = "";
 
     @Override
     public void onInitialize() {
