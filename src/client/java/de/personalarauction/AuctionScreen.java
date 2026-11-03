@@ -162,6 +162,15 @@ public class AuctionScreen extends Screen {
         activeStartingPriceDisplay = "";
     }
 
+    public static void resetForServerDisconnect() {
+        clearActiveAuction();
+        lastResult = "";
+        paymentTotals.clear();
+        latePaymentTotals.clear();
+        recentPaymentNotices.clear();
+        saveState();
+    }
+
     private static Path getSaveFile() {
         if (saveFile == null) saveFile = FabricLoader.getInstance().getConfigDir().resolve("personalauction.properties");
         return saveFile;
