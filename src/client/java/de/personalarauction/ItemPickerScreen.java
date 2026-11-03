@@ -96,7 +96,8 @@ public class ItemPickerScreen extends Screen {
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
         graphics.fill(this.width / 2 - 96, 27, this.width / 2 + 96, 28, 0xFF8FC9EE);
-        graphics.text(this.font, "Item für die Auktion auswählen", this.width / 2, 16, 0xFFAEDFFF, true);
+        String title = "Item für die Auktion auswählen";
+        graphics.text(this.font, title, this.width / 2 - this.font.width(title) / 2, 16, 0xFFAEDFFF, true);
         List<Item> filtered = getFilteredItems();
         int pageCount = getPageCount();
         if (page >= pageCount) page = pageCount - 1;
