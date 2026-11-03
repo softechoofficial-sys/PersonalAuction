@@ -29,7 +29,7 @@ public class PersonalAuction implements ModInitializer {
     public static final String MOD_ID = "personalauction";
     private static final List<Auction> AUCTIONS = new ArrayList<>();
     private static Path saveFile;
-    // Nur im Arbeitsspeicher für die aktuelle Sitzung; wird nie gespeichert.
+    // Das letzte Ergebnis bleibt gespeichert, bis eine neue Auktion gestartet wird.
     private static String lastResult = "";
 
     @Override
@@ -92,6 +92,7 @@ public class PersonalAuction implements ModInitializer {
 
     private static void loadState() {
         AUCTIONS.clear();
+        lastResult = "";
         if (saveFile == null || !Files.exists(saveFile)) return;
 
         Properties properties = new Properties();
@@ -103,12 +104,11 @@ public class PersonalAuction implements ModInitializer {
             return;
         }
 
+        // Das letzte Ergebnis ist unabhängig von einer aktiven Auktion gespeichert.
+        lastResult = properties.getProperty("auction.lastResult", "");
+
         String itemId = properties.getProperty("auction.item");
-        if (itemId == null || itemId.isBlank()) {
-            // Alte oder unvollständige Daten entfernen: Es wird nur eine aktive Auktion gespeichert.
-            clearSavedState();
-            return;
-        }
+        if (itemId == null || itemId.isBlank()) return;
 
         try {
             int price = Integer.parseInt(properties.getProperty("auction.price", ""));
@@ -117,15 +117,23 @@ public class PersonalAuction implements ModInitializer {
             Item item = identifier == null ? null
                     : BuiltInRegistries.ITEM.get(identifier).map(reference -> reference.value()).orElse(null);
 
-            if (item == null || item == Items.AIR || price < 1 || endAt <= System.currentTimeMillis()) {
-                clearSavedState();
+            if (item == null || item == Items.AIR || price < 1) {
+                System.err.println("[PersonalAuction] Ungültige gespeicherte Auktion wird verworfen.");
+                saveState();
+                return;
+            }
+
+            if (endAt <= System.currentTimeMillis()) {
+                lastResult = "Auktion beendet: " + item.getDefaultInstance().getHoverName().getString()
+                        + " | Kein Verkauf (keine Gebote).";
+                saveState();
                 return;
             }
 
             AUCTIONS.add(new Auction(itemId, item.getDefaultInstance().getHoverName().getString(), price, endAt));
         } catch (NumberFormatException exception) {
             System.err.println("[PersonalAuction] Ungültige gespeicherte Auktion wird verworfen: " + exception.getMessage());
-            clearSavedState();
+            saveState();
         }
     }
 
@@ -133,6 +141,9 @@ public class PersonalAuction implements ModInitializer {
         if (saveFile == null) return;
 
         Properties properties = new Properties();
+        if (!lastResult.isBlank()) {
+            properties.setProperty("auction.lastResult", lastResult);
+        }
         if (!AUCTIONS.isEmpty()) {
             Auction auction = AUCTIONS.get(0);
             properties.setProperty("auction.item", auction.itemId);
@@ -144,7 +155,7 @@ public class PersonalAuction implements ModInitializer {
         try {
             Files.createDirectories(saveFile.getParent());
             try (OutputStream output = Files.newOutputStream(temporaryFile)) {
-                properties.store(output, "PersonalAuction active auction only");
+                properties.store(output, "PersonalAuction active auction and latest result only");
             }
             try {
                 Files.move(temporaryFile, saveFile, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
