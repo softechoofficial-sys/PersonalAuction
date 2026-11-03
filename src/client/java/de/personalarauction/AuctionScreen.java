@@ -3,7 +3,6 @@ package de.personalarauction;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -11,7 +10,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -340,24 +338,23 @@ public class AuctionScreen extends Screen {
         }
 
         graphics.fill(left + 14, top + 128, left + 206, top + 130, 0xFF3C5068);
-        graphics.text(this.font, "AKTUELLER GEWINNER", left + 16, top + 126, 0xFF91A9C5, true);
-        graphics.text(this.font, fitText(getCurrentWinner(), 180), left + 16, top + 143, 0xFF65E6A5, true);
-        graphics.text(this.font, "Item bleibt im Inventar", left + 16, top + 155, 0xFF8795A7, true);
         graphics.text(this.font, "Startpreis (Cash)", left + 16, top + 168, 0xFFB8C3D1, true);
         graphics.text(this.font, "Dauer (Min.)", left + 16, top + 205, 0xFFB8C3D1, true);
 
-        graphics.text(this.font, "ZAHLUNGEN & TEILNEHMER", left + 224, top + 43, 0xFF91A9C5, true);
-        graphics.text(this.font, "Spieler", left + 224, top + 64, 0xFFB8C3D1, true);
-        graphics.text(this.font, "Gesamt", right - 68, top + 64, 0xFFB8C3D1, true);
-        graphics.fill(left + 222, top + 78, right - 14, top + 79, 0xFF3C5068);
+        graphics.text(this.font, "ZAHLUNGEN", left + 224, top + 43, 0xFF91A9C5, true);
+        graphics.text(this.font, "GEWINNER", left + 224, top + 64, 0xFF91A9C5, true);
+        graphics.text(this.font, fitText(getCurrentWinner(), 180), left + 224, top + 78, 0xFF65E6A5, true);
+        graphics.text(this.font, "Spieler", left + 224, top + 101, 0xFFB8C3D1, true);
+        graphics.text(this.font, "Gesamt", right - 68, top + 101, 0xFFB8C3D1, true);
+        graphics.fill(left + 222, top + 114, right - 14, top + 115, 0xFF3C5068);
 
         List<Map.Entry<String, Long>> ranked = getRankedPayments();
-        int visibleRows = 9;
+        int visibleRows = 8;
         int maxScroll = Math.max(0, ranked.size() - visibleRows);
         paymentScroll = Math.max(0, Math.min(paymentScroll, maxScroll));
         for (int i = paymentScroll; i < Math.min(ranked.size(), paymentScroll + visibleRows); i++) {
             Map.Entry<String, Long> entry = ranked.get(i);
-            int rowY = top + 88 + (i - paymentScroll) * 16;
+            int rowY = top + 123 + (i - paymentScroll) * 15;
             if (i == 0) graphics.fill(left + 220, rowY - 3, right - 14, rowY + 12, 0xFF29483F);
             graphics.text(this.font, fitText((i + 1) + ". " + entry.getKey(), 112), left + 224, rowY,
                     i == 0 ? 0xFF65E6A5 : 0xFFE0E6ED, true);
@@ -366,13 +363,13 @@ public class AuctionScreen extends Screen {
                     0xFFFFD479, true);
         }
         if (ranked.isEmpty()) {
-            graphics.text(this.font, "Noch keine Zahlungen erkannt.", left + 224, top + 91, 0xFF8795A7, true);
+            graphics.text(this.font, "Noch keine Zahlungen erkannt.", left + 224, top + 126, 0xFF8795A7, true);
         } else if (ranked.size() > visibleRows) {
             graphics.text(this.font, "Mausrad: Liste scrollen (" + ranked.size() + " Spieler)",
                     left + 224, bottom - 18, 0xFF8795A7, true);
         }
         if (!paymentNotice.isEmpty()) {
-            graphics.text(this.font, fitText(paymentNotice, 180), left + 224, top + 238, 0xFF65E6A5, true);
+            graphics.text(this.font, fitText(paymentNotice, 180), left + 224, top + 252, 0xFF65E6A5, true);
         }
         if (!errorMessage.isEmpty()) {
             graphics.text(this.font, fitText(errorMessage, 180), left + 16, bottom - 16, 0xFFFFB86B, true);
@@ -386,8 +383,8 @@ public class AuctionScreen extends Screen {
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
         int left = this.width / 2 - 210;
         int top = this.height / 2 - 125;
-        if (mouseX >= left + 215 && mouseX <= left + 415 && mouseY >= top + 80 && mouseY <= top + 245) {
-            int maxScroll = Math.max(0, getRankedPayments().size() - 9);
+        if (mouseX >= left + 215 && mouseX <= left + 415 && mouseY >= top + 116 && mouseY <= top + 245) {
+            int maxScroll = Math.max(0, getRankedPayments().size() - 8);
             paymentScroll = Math.max(0, Math.min(maxScroll, paymentScroll - (int) Math.signum(verticalAmount)));
             return true;
         }
