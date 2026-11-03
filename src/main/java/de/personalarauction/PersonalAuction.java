@@ -4,19 +4,23 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public class PersonalAuction implements ModInitializer {
     public static final String MOD_ID = "personalauction";
     private static final List<Auction> AUCTIONS = new ArrayList<>();
+    private static final Map<UUID, List<ItemStack>> PENDING_RETURNS = new HashMap<>();
     private static String lastResult = "Noch keine Auktion beendet.";
 
     @Override
@@ -69,6 +73,19 @@ public class PersonalAuction implements ModInitializer {
             ServerPlayNetworking.send(player, new AuctionStatusPayload(createStatusMessage(), canCreate));
         });
 
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            ServerPlayer player = handler.getPlayer();
+            List<ItemStack> pending = PENDING_RETURNS.remove(player.getUUID());
+            if (pending != null) {
+                for (ItemStack stack : pending) {
+                    if (!player.getInventory().add(stack.copy())) {
+                        player.drop(stack.copy(), false);
+                    }
+                }
+                player.sendSystemMessage(Component.literal("Dein Auktionsgegenstand wurde zurückgegeben."));
+            }
+        });
+
         ServerTickEvents.END_SERVER_TICK.register(PersonalAuction::tickAuctions);
     }
 
@@ -92,8 +109,13 @@ public class PersonalAuction implements ModInitializer {
             Auction auction = iterator.next();
             if (now >= auction.endAt) {
                 ServerPlayer seller = server.getPlayerList().getPlayer(auction.seller);
-                if (seller != null && !seller.getInventory().add(auction.item.copy())) {
-                    seller.drop(auction.item.copy(), false);
+                if (seller != null) {
+                    if (!seller.getInventory().add(auction.item.copy())) {
+                        seller.drop(auction.item.copy(), false);
+                    }
+                } else {
+                    PENDING_RETURNS.computeIfAbsent(auction.seller, ignored -> new ArrayList<>())
+                            .add(auction.item.copy());
                 }
                 lastResult = "Beendet: " + auction.item.getCount() + "x "
                         + auction.item.getHoverName().getString() + " | Ergebnis: kein Verkauf; Item zurückgegeben.";
