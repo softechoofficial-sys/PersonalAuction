@@ -23,6 +23,7 @@ public class AuctionScreen extends Screen {
     private int selectedItemIndex = 0;
     private static String auctionStatus = "Auktionsstatus wird geladen...";
     private static boolean canCreate = false;
+    private static String activeAuctionItemId = "";
     private static AuctionScreen currentScreen;
     private final List<AbstractWidget> creatorWidgets = new ArrayList<>();
     private int statusRequestTicks = 0;
@@ -34,9 +35,10 @@ public class AuctionScreen extends Screen {
         selectableItems.removeIf(item -> item == net.minecraft.world.item.Items.AIR);
     }
 
-    public static void setAuctionStatus(String message, boolean permission) {
+    public static void setAuctionStatus(String message, boolean permission, String itemId) {
         auctionStatus = message;
         canCreate = permission;
+        activeAuctionItemId = itemId == null ? "" : itemId;
         if (currentScreen != null) currentScreen.updateCreatorVisibility();
     }
 
@@ -127,13 +129,22 @@ public class AuctionScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
-        graphics.text(this.font, auctionStatus, this.width / 2 - 120, this.height / 2 - 105, 0xFFFFFFFF, true);
+        if (!activeAuctionItemId.isEmpty()) {
+            Identifier activeId = Identifier.tryParse(activeAuctionItemId);
+            Item activeItem = activeId == null ? null
+                    : BuiltInRegistries.ITEM.get(activeId).map(reference -> reference.value()).orElse(null);
+            if (activeItem != null && activeItem != net.minecraft.world.item.Items.AIR) {
+                graphics.item(activeItem.getDefaultInstance(), this.width / 2 - 120, this.height / 2 - 110);
+            }
+        }
+        graphics.text(this.font, auctionStatus, this.width / 2 - 96, this.height / 2 - 105, 0xFFFFFFFF, true);
         if (canCreate) {
             if (!selectableItems.isEmpty()) {
                 Item selected = selectableItems.get(selectedItemIndex);
                 ItemStack preview = selected.getDefaultInstance();
-                graphics.text(this.font, "Ausgewähltes Item: " + preview.getHoverName().getString(),
-                        this.width / 2 - 75, this.height / 2 - 76, 0xFFFFFFFF, true);
+                graphics.item(preview, this.width / 2 - 8, this.height / 2 - 82);
+                graphics.text(this.font, preview.getHoverName().getString(),
+                        this.width / 2 + 14, this.height / 2 - 76, 0xFFFFFFFF, true);
             }
             graphics.text(this.font, "Startpreis", this.width / 2 - 100, this.height / 2 - 40, 0xFFAAAAAA, true);
             graphics.text(this.font, "Dauer (Minuten)", this.width / 2 - 100, this.height / 2 - 10, 0xFFAAAAAA, true);
