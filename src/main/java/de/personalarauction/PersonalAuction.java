@@ -29,6 +29,7 @@ public class PersonalAuction implements ModInitializer {
     public static final String MOD_ID = "personalauction";
     private static final List<Auction> AUCTIONS = new ArrayList<>();
     private static Path saveFile;
+    // Nur im Arbeitsspeicher für die aktuelle Sitzung; wird nie gespeichert.\n    private static String lastResult = "";
 
     @Override
     public void onInitialize() {
@@ -64,6 +65,7 @@ public class PersonalAuction implements ModInitializer {
             }
             long endAt = System.currentTimeMillis() + duration * 60_000L;
             String itemName = item.getDefaultInstance().getHoverName().getString();
+            lastResult = "";
             AUCTIONS.add(new Auction(itemId.toString(), itemName, price, endAt));
             saveState();
             context.server().getPlayerList().broadcastSystemMessage(
@@ -171,7 +173,7 @@ public class PersonalAuction implements ModInitializer {
     }
 
     private static String createStatusMessage() {
-        if (AUCTIONS.isEmpty()) return "Keine aktive Auktion.";
+        if (AUCTIONS.isEmpty()) return lastResult.isEmpty() ? "Keine aktive Auktion." : lastResult;
         Auction auction = AUCTIONS.get(0);
         long seconds = Math.max(0, (auction.endAt - System.currentTimeMillis()) / 1000);
         return "Aktuell: " + auction.itemName + " | Startpreis: " + auction.startPrice
@@ -183,9 +185,9 @@ public class PersonalAuction implements ModInitializer {
         while (iterator.hasNext()) {
             Auction auction = iterator.next();
             if (System.currentTimeMillis() >= auction.endAt) {
+                lastResult = "Auktion beendet: " + auction.itemName + " | Kein Verkauf (keine Gebote).";
                 server.getPlayerList().broadcastSystemMessage(
-                        Component.literal("Auktion beendet: " + auction.itemName
-                                + " | Startpreis: " + auction.startPrice), false);
+                        Component.literal(lastResult), false);
                 iterator.remove();
                 saveState();
             }
