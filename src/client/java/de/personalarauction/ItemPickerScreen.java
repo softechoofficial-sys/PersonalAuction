@@ -5,6 +5,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
@@ -123,10 +124,12 @@ public class ItemPickerScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (super.mouseClicked(mouseX, mouseY, button)) return true;
-        if (button != 0) return false;
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        if (super.mouseClicked(event, doubleClick)) return true;
+        if (event.button().button() != 0) return false;
 
+        double mouseX = event.x();
+        double mouseY = event.y();
         int column = (int) (mouseX - gridStartX()) / CELL_SIZE;
         int row = (int) (mouseY - gridStartY()) / CELL_SIZE;
         if (column < 0 || column >= COLUMNS || row < 0 || row >= ROWS) return false;
