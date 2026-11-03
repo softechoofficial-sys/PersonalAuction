@@ -2,11 +2,15 @@ package de.personalarauction;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class AuctionScreen extends Screen {
     private EditBox priceField;
@@ -14,14 +18,29 @@ public class AuctionScreen extends Screen {
     private String errorMessage = "";
     private int selectedSlot = 0;
     private static String auctionStatus = "Auktionsstatus wird geladen...";
+    private static boolean canCreate = false;
+    private static AuctionScreen currentScreen;
+    private final List<AbstractWidget> creatorWidgets = new ArrayList<>();
     private int statusRequestTicks = 0;
 
     public AuctionScreen() {
         super(Component.literal("PersonalAuction"));
+        currentScreen = this;
     }
 
-    public static void setAuctionStatus(String message) {
+    public static void setAuctionStatus(String message, boolean permission) {
         auctionStatus = message;
+        canCreate = permission;
+        if (currentScreen != null) {
+            currentScreen.updateCreatorVisibility();
+        }
+    }
+
+    private void updateCreatorVisibility() {
+        for (AbstractWidget widget : creatorWidgets) {
+            widget.visible = canCreate;
+            widget.active = canCreate;
+        }
     }
 
     @Override
@@ -35,11 +54,17 @@ public class AuctionScreen extends Screen {
 
     @Override
     protected void init() {
+        creatorWidgets.clear();
         int center = this.width / 2;
-        addRenderableWidget(Button.builder(Component.literal("<"), button -> changeSelectedSlot(-1))
-                .bounds(center - 100, this.height / 2 - 82, 20, 20).build());
-        addRenderableWidget(Button.builder(Component.literal(">"), button -> changeSelectedSlot(1))
-                .bounds(center + 80, this.height / 2 - 82, 20, 20).build());
+        Button previous = Button.builder(Component.literal("<"), button -> changeSelectedSlot(-1))
+                .bounds(center - 100, this.height / 2 - 82, 20, 20).build();
+        addRenderableWidget(previous);
+        creatorWidgets.add(previous);
+
+        Button next = Button.builder(Component.literal(">"), button -> changeSelectedSlot(1))
+                .bounds(center + 80, this.height / 2 - 82, 20, 20).build();
+        addRenderableWidget(next);
+        creatorWidgets.add(next);
 
         priceField = new EditBox(this.font, center - 100, this.height / 2 - 28, 200, 20,
                 Component.literal("Startpreis"));
@@ -47,6 +72,7 @@ public class AuctionScreen extends Screen {
         priceField.setValue("100");
         priceField.setHint(Component.literal("Startpreis"));
         addRenderableWidget(priceField);
+        creatorWidgets.add(priceField);
 
         durationField = new EditBox(this.font, center - 100, this.height / 2 + 2, 200, 20,
                 Component.literal("Dauer in Minuten"));
@@ -54,12 +80,25 @@ public class AuctionScreen extends Screen {
         durationField.setValue("5");
         durationField.setHint(Component.literal("Dauer in Minuten"));
         addRenderableWidget(durationField);
+        creatorWidgets.add(durationField);
 
-        addRenderableWidget(Button.builder(Component.literal("Auktion starten"), button -> startAuction())
-                .bounds(center - 100, this.height / 2 + 34, 200, 20).build());
+        Button start = Button.builder(Component.literal("Auktion starten"), button -> startAuction())
+                .bounds(center - 100, this.height / 2 + 34, 200, 20).build();
+        addRenderableWidget(start);
+        creatorWidgets.add(start);
+
         addRenderableWidget(Button.builder(Component.literal("Schließen"), button -> onClose())
                 .bounds(center - 100, this.height / 2 + 60, 200, 20).build());
+        updateCreatorVisibility();
         ClientPlayNetworking.send(new AuctionStatusRequestPayload());
+    }
+
+    @Override
+    public void removed() {
+        if (currentScreen == this) {
+            currentScreen = null;
+        }
+        super.removed();
     }
 
     private void changeSelectedSlot(int direction) {
@@ -67,6 +106,10 @@ public class AuctionScreen extends Screen {
     }
 
     private void startAuction() {
+        if (!canCreate) {
+            errorMessage = "Keine Berechtigung zum Erstellen von Auktionen.";
+            return;
+        }
         try {
             int price = Integer.parseInt(priceField.getValue());
             int duration = Integer.parseInt(durationField.getValue());
@@ -83,17 +126,19 @@ public class AuctionScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
-        ItemStack selectedItem = this.minecraft.player.getInventory().getItem(selectedSlot);
-        String itemName = selectedItem.isEmpty() ? "Leer" : selectedItem.getHoverName().getString()
-                + " x" + selectedItem.getCount();
         graphics.text(this.font, auctionStatus, this.width / 2 - 120, this.height / 2 - 105,
                 0xFFFFFFFF, true);
-        graphics.text(this.font, "Item (Slot " + selectedSlot + "): " + itemName, this.width / 2 - 75,
-                this.height / 2 - 76, 0xFFFFFFFF, true);
-        graphics.text(this.font, "Startpreis", this.width / 2 - 100, this.height / 2 - 40,
-                0xFFAAAAAA, true);
-        graphics.text(this.font, "Dauer (Minuten)", this.width / 2 - 100, this.height / 2 - 10,
-                0xFFAAAAAA, true);
+        if (canCreate) {
+            ItemStack selectedItem = this.minecraft.player.getInventory().getItem(selectedSlot);
+            String itemName = selectedItem.isEmpty() ? "Leer" : selectedItem.getHoverName().getString()
+                    + " x" + selectedItem.getCount();
+            graphics.text(this.font, "Item (Slot " + selectedSlot + "): " + itemName,
+                    this.width / 2 - 75, this.height / 2 - 76, 0xFFFFFFFF, true);
+            graphics.text(this.font, "Startpreis", this.width / 2 - 100, this.height / 2 - 40,
+                    0xFFAAAAAA, true);
+            graphics.text(this.font, "Dauer (Minuten)", this.width / 2 - 100, this.height / 2 - 10,
+                    0xFFAAAAAA, true);
+        }
         if (!errorMessage.isEmpty()) {
             graphics.text(this.font, errorMessage, this.width / 2 - 100, this.height / 2 + 88,
                     0xFFFF5555, true);
