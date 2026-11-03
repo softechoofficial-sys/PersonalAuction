@@ -6,7 +6,10 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -16,7 +19,8 @@ public class AuctionScreen extends Screen {
     private EditBox priceField;
     private EditBox durationField;
     private String errorMessage = "";
-    private int selectedSlot = 0;
+    private final List<Item> selectableItems = new ArrayList<>();
+    private int selectedItemIndex = 0;
     private static String auctionStatus = "Auktionsstatus wird geladen...";
     private static boolean canCreate = false;
     private static AuctionScreen currentScreen;
@@ -26,14 +30,14 @@ public class AuctionScreen extends Screen {
     public AuctionScreen() {
         super(Component.literal("PersonalAuction"));
         currentScreen = this;
+        BuiltInRegistries.ITEM.forEach(selectableItems::add);
+        selectableItems.removeIf(item -> item == net.minecraft.world.item.Items.AIR);
     }
 
     public static void setAuctionStatus(String message, boolean permission) {
         auctionStatus = message;
         canCreate = permission;
-        if (currentScreen != null) {
-            currentScreen.updateCreatorVisibility();
-        }
+        if (currentScreen != null) currentScreen.updateCreatorVisibility();
     }
 
     private void updateCreatorVisibility() {
@@ -56,26 +60,23 @@ public class AuctionScreen extends Screen {
     protected void init() {
         creatorWidgets.clear();
         int center = this.width / 2;
-        Button previous = Button.builder(Component.literal("<"), button -> changeSelectedSlot(-1))
+        Button previous = Button.builder(Component.literal("<"), button -> changeSelectedItem(-1))
                 .bounds(center - 100, this.height / 2 - 82, 20, 20).build();
         addRenderableWidget(previous);
         creatorWidgets.add(previous);
-
-        Button next = Button.builder(Component.literal(">"), button -> changeSelectedSlot(1))
+        Button next = Button.builder(Component.literal(">"), button -> changeSelectedItem(1))
                 .bounds(center + 80, this.height / 2 - 82, 20, 20).build();
         addRenderableWidget(next);
         creatorWidgets.add(next);
 
-        priceField = new EditBox(this.font, center - 100, this.height / 2 - 28, 200, 20,
-                Component.literal("Startpreis"));
+        priceField = new EditBox(this.font, center - 100, this.height / 2 - 28, 200, 20, Component.literal("Startpreis"));
         priceField.setMaxLength(10);
         priceField.setValue("100");
         priceField.setHint(Component.literal("Startpreis"));
         addRenderableWidget(priceField);
         creatorWidgets.add(priceField);
 
-        durationField = new EditBox(this.font, center - 100, this.height / 2 + 2, 200, 20,
-                Component.literal("Dauer in Minuten"));
+        durationField = new EditBox(this.font, center - 100, this.height / 2 + 2, 200, 20, Component.literal("Dauer in Minuten"));
         durationField.setMaxLength(5);
         durationField.setValue("5");
         durationField.setHint(Component.literal("Dauer in Minuten"));
@@ -86,7 +87,6 @@ public class AuctionScreen extends Screen {
                 .bounds(center - 100, this.height / 2 + 34, 200, 20).build();
         addRenderableWidget(start);
         creatorWidgets.add(start);
-
         addRenderableWidget(Button.builder(Component.literal("Schließen"), button -> onClose())
                 .bounds(center - 100, this.height / 2 + 60, 200, 20).build());
         updateCreatorVisibility();
@@ -95,14 +95,14 @@ public class AuctionScreen extends Screen {
 
     @Override
     public void removed() {
-        if (currentScreen == this) {
-            currentScreen = null;
-        }
+        if (currentScreen == this) currentScreen = null;
         super.removed();
     }
 
-    private void changeSelectedSlot(int direction) {
-        selectedSlot = (selectedSlot + direction + 36) % 36;
+    private void changeSelectedItem(int direction) {
+        if (!selectableItems.isEmpty()) {
+            selectedItemIndex = Math.floorMod(selectedItemIndex + direction, selectableItems.size());
+        }
     }
 
     private void startAuction() {
@@ -113,35 +113,33 @@ public class AuctionScreen extends Screen {
         try {
             int price = Integer.parseInt(priceField.getValue());
             int duration = Integer.parseInt(durationField.getValue());
-            if (price < 1 || duration < 1 || duration > 10080) {
+            if (price < 1 || duration < 1 || duration > 10080 || selectableItems.isEmpty()) {
                 throw new NumberFormatException();
             }
-            ClientPlayNetworking.send(new AuctionCreatePayload(selectedSlot, price, duration));
+            Identifier itemId = BuiltInRegistries.ITEM.getKey(selectableItems.get(selectedItemIndex));
+            ClientPlayNetworking.send(new AuctionCreatePayload(itemId.toString(), price, duration));
             errorMessage = "Auktionsanfrage gesendet. Serverbestätigung abwarten.";
         } catch (NumberFormatException exception) {
-            errorMessage = "Ungültiger Startpreis oder ungültige Dauer (1 bis 10080 Minuten).";
+            errorMessage = "Ungültiger Startpreis, Dauer oder Item-Auswahl.";
         }
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
-        graphics.text(this.font, auctionStatus, this.width / 2 - 120, this.height / 2 - 105,
-                0xFFFFFFFF, true);
+        graphics.text(this.font, auctionStatus, this.width / 2 - 120, this.height / 2 - 105, 0xFFFFFFFF, true);
         if (canCreate) {
-            ItemStack selectedItem = this.minecraft.player.getInventory().getItem(selectedSlot);
-            String itemName = selectedItem.isEmpty() ? "Leer" : selectedItem.getHoverName().getString()
-                    + " x" + selectedItem.getCount();
-            graphics.text(this.font, "Item (Slot " + selectedSlot + "): " + itemName,
-                    this.width / 2 - 75, this.height / 2 - 76, 0xFFFFFFFF, true);
-            graphics.text(this.font, "Startpreis", this.width / 2 - 100, this.height / 2 - 40,
-                    0xFFAAAAAA, true);
-            graphics.text(this.font, "Dauer (Minuten)", this.width / 2 - 100, this.height / 2 - 10,
-                    0xFFAAAAAA, true);
+            if (!selectableItems.isEmpty()) {
+                Item selected = selectableItems.get(selectedItemIndex);
+                ItemStack preview = selected.getDefaultInstance();
+                graphics.text(this.font, "Ausgewähltes Item: " + preview.getHoverName().getString(),
+                        this.width / 2 - 75, this.height / 2 - 76, 0xFFFFFFFF, true);
+            }
+            graphics.text(this.font, "Startpreis", this.width / 2 - 100, this.height / 2 - 40, 0xFFAAAAAA, true);
+            graphics.text(this.font, "Dauer (Minuten)", this.width / 2 - 100, this.height / 2 - 10, 0xFFAAAAAA, true);
         }
         if (!errorMessage.isEmpty()) {
-            graphics.text(this.font, errorMessage, this.width / 2 - 100, this.height / 2 + 88,
-                    0xFFFF5555, true);
+            graphics.text(this.font, errorMessage, this.width / 2 - 100, this.height / 2 + 88, 0xFFFF5555, true);
         }
     }
 
