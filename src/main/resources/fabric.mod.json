@@ -3,12 +3,11 @@
   "id": "personalauction",
   "version": "${version}",
   "name": "PersonalAuction",
-  "description": "Persönliche Stream-Auktion mit GUI und automatischem Ende.",
+  "description": "Lokale persönliche Stream-Auktion mit GUI und Chat-Zahlungserkennung.",
   "authors": ["PersonalAuction"],
   "license": "MIT",
-  "environment": "*",
+  "environment": "client",
   "entrypoints": {
-    "main": ["de.personalarauction.PersonalAuction"],
     "client": ["de.personalarauction.PersonalAuctionClient"]
   },
   "depends": {
