@@ -10,6 +10,13 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.PotionContents;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.alchemy.Potion;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,12 +37,17 @@ public class ItemPickerScreen extends Screen {
     private Button nextPageButton;
     private int page;
 
-    public ItemPickerScreen(Screen parent, Consumer<Item> onSelect) {
+    public ItemPickerScreen(Screen parent, Consumer<ItemStack> onSelect) {
         super(Component.literal("Item auswählen"));
         this.parent = parent;
         this.onSelect = onSelect;
-        BuiltInRegistries.ITEM.forEach(allItems::add);
-        allItems.removeIf(item -> item == net.minecraft.world.item.Items.AIR);
+        BuiltInRegistries.ITEM.forEach(item -> {
+            if (item != Items.AIR) allItems.add(new ItemStack(item));
+        });
+        addPotionVariants(Items.POTION);
+        addPotionVariants(Items.SPLASH_POTION);
+        addPotionVariants(Items.LINGERING_POTION);
+        addEnchantedBookVariants();
     }
 
     @Override
@@ -65,12 +77,36 @@ public class ItemPickerScreen extends Screen {
         updatePageButtons();
     }
 
-    private List<Item> getFilteredItems() {
+    private void addPotionVariants(Item potionItem) {
+        BuiltInRegistries.POTION.forEach(potion -> {
+            var key = BuiltInRegistries.POTION.getKey(potion);
+            Holder<Potion> holder = BuiltInRegistries.POTION.getHolder(key).orElse(null);
+            if (holder == null) return;
+            ItemStack stack = new ItemStack(potionItem);
+            stack.set(DataComponents.POTION_CONTENTS, new PotionContents(holder));
+            allItems.add(stack);
+        });
+    }
+
+    private void addEnchantedBookVariants() {
+        BuiltInRegistries.ENCHANTMENT.forEach(enchantment -> {
+            var key = BuiltInRegistries.ENCHANTMENT.getKey(enchantment);
+            Holder<Enchantment> holder = BuiltInRegistries.ENCHANTMENT.getHolder(key).orElse(null);
+            if (holder == null) return;
+            ItemEnchantments.Mutable stored = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
+            stored.set(holder, 1);
+            ItemStack book = new ItemStack(Items.ENCHANTED_BOOK);
+            book.set(DataComponents.STORED_ENCHANTMENTS, stored.toImmutable());
+            allItems.add(book);
+        });
+    }
+
+    private List<ItemStack> getFilteredItems() {
         String query = searchField == null ? "" : searchField.getValue().trim().toLowerCase(Locale.ROOT);
         if (query.isEmpty()) return allItems;
         return allItems.stream().filter(item -> {
-            String name = item.getDefaultInstance().getHoverName().getString().toLowerCase(Locale.ROOT);
-            String id = BuiltInRegistries.ITEM.getKey(item).toString().toLowerCase(Locale.ROOT);
+            String name = item.getHoverName().getString().toLowerCase(Locale.ROOT);
+            String id = BuiltInRegistries.ITEM.getKey(item.getItem()).toString().toLowerCase(Locale.ROOT);
             return name.contains(query) || id.contains(query);
         }).toList();
     }
@@ -98,7 +134,7 @@ public class ItemPickerScreen extends Screen {
         graphics.fill(this.width / 2 - 96, 27, this.width / 2 + 96, 28, 0xFF8FC9EE);
         String title = "Item für die Auktion auswählen";
         graphics.text(this.font, title, this.width / 2 - this.font.width(title) / 2, 16, 0xFFAEDFFF, true);
-        List<Item> filtered = getFilteredItems();
+        List<ItemStack> filtered = getFilteredItems();
         int pageCount = getPageCount();
         if (page >= pageCount) page = pageCount - 1;
         int start = page * PAGE_SIZE;
@@ -112,16 +148,16 @@ public class ItemPickerScreen extends Screen {
             int row = localIndex / COLUMNS;
             int x = startX + column * CELL_SIZE;
             int y = startY + row * CELL_SIZE;
-            Item item = filtered.get(index);
+            ItemStack item = filtered.get(index);
             graphics.fill(x, y, x + CELL_SIZE - 1, y + CELL_SIZE - 1, 0xAA263746);
             graphics.fill(x, y, x + CELL_SIZE - 1, y + 1, 0xFF45627A);
-            graphics.item(item.getDefaultInstance(), x + 2, y + 2);
+            graphics.item(item, x + 2, y + 2);
             if (mouseX >= x && mouseX < x + CELL_SIZE && mouseY >= y && mouseY < y + CELL_SIZE) {
                 graphics.fill(x, y, x + CELL_SIZE - 1, y + 1, 0xFFB8E2FF);
                 graphics.fill(x, y + CELL_SIZE - 1, x + CELL_SIZE - 1, y + CELL_SIZE, 0xFFB8E2FF);
                 graphics.fill(x, y, x + 1, y + CELL_SIZE - 1, 0xFFB8E2FF);
                 graphics.fill(x + CELL_SIZE - 1, y, x + CELL_SIZE, y + CELL_SIZE - 1, 0xFFB8E2FF);
-                graphics.text(this.font, item.getDefaultInstance().getHoverName(),
+                graphics.text(this.font, item.getHoverName(),
                         this.width / 2, this.height - 52, 0xFFB8E2FF, true);
             }
         }
@@ -145,11 +181,11 @@ public class ItemPickerScreen extends Screen {
         int row = (int) (mouseY - gridStartY()) / CELL_SIZE;
         if (column < 0 || column >= COLUMNS || row < 0 || row >= ROWS) return false;
 
-        List<Item> filtered = getFilteredItems();
+        List<ItemStack> filtered = getFilteredItems();
         int index = page * PAGE_SIZE + row * COLUMNS + column;
         if (index < 0 || index >= filtered.size()) return false;
 
-        onSelect.accept(filtered.get(index));
+        onSelect.accept(filtered.get(index).copy());
         returnToParent();
         return true;
     }
