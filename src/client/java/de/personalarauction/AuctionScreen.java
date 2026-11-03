@@ -214,7 +214,7 @@ public class AuctionScreen extends Screen {
         addRenderableWidget(itemPickerButton);
         updateItemPickerButton();
 
-        minPriceField = new EditBox(this.font, left + 16, top + 153, 190, 20, Component.literal("Mindeststartpreis"));
+        minPriceField = new EditBox(this.font, left + 16, top + 153, 190, 20, Component.literal("Startpreis"));
         minPriceField.setMaxLength(12);
         minPriceField.setHint(Component.empty());
         addRenderableWidget(minPriceField);
@@ -287,7 +287,7 @@ public class AuctionScreen extends Screen {
             saveState();
             updateEndButton();
         } catch (NumberFormatException exception) {
-            errorMessage = "Ungültiger Mindeststartpreis, Dauer oder Item-Auswahl.";
+            errorMessage = "Ungültiger Startpreis, Dauer oder Item-Auswahl.";
         }
     }
 
@@ -330,7 +330,7 @@ public class AuctionScreen extends Screen {
             long seconds = Math.max(0, (auctionEndAt - System.currentTimeMillis()) / 1000);
             graphics.text(this.font, "Restzeit: " + (seconds / 60) + "m " + (seconds % 60) + "s",
                     left + 62, top + 78, 0xFFB8C3D1, true);
-            graphics.text(this.font, "Mindeststartpreis: $" + activeStartingPrice,
+            graphics.text(this.font, "Startpreis: $" + activeStartingPrice,
                     left + 62, top + 94, 0xFFFFD479, true);
         } else {
             Item selectedItem = hasSelectedItem && !selectableItems.isEmpty()
@@ -348,7 +348,7 @@ public class AuctionScreen extends Screen {
         }
 
         graphics.fill(left + 14, top + 128, left + 206, top + 130, 0xFF58758F);
-        graphics.text(this.font, "Mindeststartpreis ($)", left + 16, top + 141, 0xFFB8C3D1, true);
+        graphics.text(this.font, "Startpreis ($)", left + 16, top + 141, 0xFFB8C3D1, true);
         graphics.text(this.font, "Dauer (Min)", left + 16, top + 180, 0xFFB8C3D1, true);
 
         graphics.text(this.font, "ZAHLUNGEN", left + 224, top + 43, 0xFF91A9C5, true);
