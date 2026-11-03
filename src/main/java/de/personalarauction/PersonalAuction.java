@@ -36,6 +36,7 @@ public class PersonalAuction implements ModInitializer {
     public void onInitialize() {
         PayloadTypeRegistry.serverboundPlay().register(AuctionCreatePayload.TYPE, AuctionCreatePayload.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(AuctionStatusRequestPayload.TYPE, AuctionStatusRequestPayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(AuctionEndPayload.TYPE, AuctionEndPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(AuctionStatusPayload.TYPE, AuctionStatusPayload.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(AuctionCreatePayload.TYPE, (payload, context) -> {
@@ -72,6 +73,22 @@ public class PersonalAuction implements ModInitializer {
             context.server().getPlayerList().broadcastSystemMessage(
                     Component.literal("Auktion gestartet: " + itemName + " | Startpreis: " + price
                             + " | Dauer: " + duration + " Minuten."), false);
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(AuctionEndPayload.TYPE, (payload, context) -> {
+            ServerPlayer player = context.player();
+            if (!context.server().getPlayerList().isOp(player.nameAndId())) {
+                player.sendSystemMessage(Component.literal("Nur Operatoren dürfen Auktionen beenden."));
+                return;
+            }
+            if (AUCTIONS.isEmpty()) {
+                player.sendSystemMessage(Component.literal("Es läuft keine Auktion."));
+                return;
+            }
+            Auction auction = AUCTIONS.remove(0);
+            lastResult = "Auktion vorzeitig beendet: " + auction.itemName + " | Kein Verkauf (keine Gebote).";
+            saveState();
+            context.server().getPlayerList().broadcastSystemMessage(Component.literal(lastResult), false);
         });
 
         ServerPlayNetworking.registerGlobalReceiver(AuctionStatusRequestPayload.TYPE, (payload, context) -> {
