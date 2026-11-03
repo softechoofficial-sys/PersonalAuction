@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
 public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitializer {
     // Nur diese vollständige Server-Systemmeldung zählt als Zahlung.
     private static final Pattern CASH_PAYMENT_MESSAGE =
-            Pattern.compile("^([A-Za-z0-9_]{1,16}) hat dir \\$([0-9]+(?:[.,][0-9]+)?) gezahlt$", Pattern.CASE_INSENSITIVE);
+            Pattern.compile("^([A-Za-z0-9_]{1,16}) hat dir \\$([0-9]+(?:[.,][0-9]+)?[kKmMbBtT]?) gezahlt$", Pattern.CASE_INSENSITIVE);
     // Manche Server/Chat-Handler liefern dieselbe Systemmeldung mehrfach direkt hintereinander.
     // Nur unmittelbare Duplikate blockieren; echte wiederholte Zahlungen bleiben danach zählbar.
     private static final Map<String, Long> RECENT_PAYMENT_MESSAGES = new HashMap<>();
