@@ -182,7 +182,7 @@ public class ItemPickerScreen extends Screen {
         int row = (int) (mouseY - gridStartY()) / CELL_SIZE;
         if (column < 0 || column >= COLUMNS || row < 0 || row >= ROWS) return false;
 
-        List<ItemStack> filtered = getFilteredItems();
+        List<SelectableItem> filtered = getFilteredItems();
         int index = page * PAGE_SIZE + row * COLUMNS + column;
         if (index < 0 || index >= filtered.size()) return false;
 
