@@ -204,8 +204,6 @@ public class AuctionScreen extends Screen {
         endAuctionButton = Button.builder(Component.literal("Auktion beenden"), button -> endAuction())
                 .bounds(left + 114, top + 239, 92, 20).build();
         addRenderableWidget(endAuctionButton);
-        addRenderableWidget(Button.builder(Component.literal("Schließen"), button -> onClose())
-                .bounds(left + 16, top + 239, 190, 20).build());
         updateEndButton();
     }
 
