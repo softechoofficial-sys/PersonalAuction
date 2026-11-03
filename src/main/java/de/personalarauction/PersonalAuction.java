@@ -1,184 +1,109 @@
 package de.personalarauction;
 
-import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.scoreboard.Scoreboard;
-import net.minecraft.scoreboard.ScoreboardObjective;
-import net.minecraft.scoreboard.ScoreboardCriterion;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-
-import static net.minecraft.server.command.CommandManager.argument;
-import static net.minecraft.server.command.CommandManager.literal;
+import java.util.UUID;
 
 public class PersonalAuction implements ModInitializer {
     public static final String MOD_ID = "personalauction";
-    // Setze hier deine UUID ein. Leer = nur Konsole darf Admin-Aktionen ausführen.
-    private static final Set<UUID> ADMINS = Set.of();
-    private static final Map<Integer, Auction> AUCTIONS = new ConcurrentHashMap<>();
-    private static int nextId = 1;
-    private static final String MONEY_OBJECTIVE = "money";
+
+    private static Auction activeAuction;
 
     @Override
     public void onInitialize() {
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
-            dispatcher.register(literal("auction")
-                .executes(ctx -> showAuctions(ctx.getSource()))
-                .then(literal("create")
-                    .then(argument("startpreis", IntegerArgumentType.integer(1))
-                        .then(argument("dauerMinuten", IntegerArgumentType.integer(1, 10080))
-                            .executes(ctx -> createAuction(
-                                ctx.getSource(),
-                                IntegerArgumentType.getInteger(ctx, "startpreis"),
-                                IntegerArgumentType.getInteger(ctx, "dauerMinuten"))))))
-                .then(literal("bid")
-                    .then(argument("id", IntegerArgumentType.integer(1))
-                        .then(argument("gebot", IntegerArgumentType.integer(1))
-                            .executes(ctx -> bid(ctx.getSource(),
-                                IntegerArgumentType.getInteger(ctx, "id"),
-                                IntegerArgumentType.getInteger(ctx, "gebot"))))))
-                .then(literal("admin").executes(ctx -> adminHelp(ctx.getSource())))
-            );
-        });
+        PayloadTypeRegistry.serverboundPlay().register(AuctionPayloads.Request.TYPE, AuctionPayloads.Request.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(AuctionPayloads.Create.TYPE, AuctionPayloads.Create.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(AuctionPayloads.Sync.TYPE, AuctionPayloads.Sync.CODEC);
+
+        ServerPlayNetworking.registerGlobalReceiver(AuctionPayloads.Request.TYPE, (payload, context) ->
+                context.player().getServer().execute(() -> sendState(context.player())));
+
+        ServerPlayNetworking.registerGlobalReceiver(AuctionPayloads.Create.TYPE, (payload, context) ->
+                context.player().getServer().execute(() -> createAuction(context.player(), payload)));
+
+        ServerTickEvents.END_SERVER_TICK.register(PersonalAuction::tickAuction);
     }
 
-    private static boolean isAdmin(ServerCommandSource source) {
-        return source.getEntity() instanceof ServerPlayerEntity player && ADMINS.contains(player.getUuid());
+    private static void createAuction(ServerPlayer player, AuctionPayloads.Create payload) {
+        if (!player.hasPermissions(2)) {
+            player.sendSystemMessage(Component.literal("Du brauchst Operator-Rechte, um eine Auktion zu erstellen."));
+            return;
+        }
+        if (activeAuction != null && !activeAuction.ended) {
+            player.sendSystemMessage(Component.literal("Es läuft bereits eine Auktion."));
+            sendState(player);
+            return;
+        }
+        if (payload.slot() < 0 || payload.slot() > 8
+                || payload.startPrice() < 1 || payload.startPrice() > 1_000_000_000
+                || payload.durationMinutes() < 1 || payload.durationMinutes() > 10080) {
+            player.sendSystemMessage(Component.literal("Ungültige Auktionsdaten."));
+            return;
+        }
+
+        ItemStack selected = player.getInventory().getItem(payload.slot());
+        if (selected.isEmpty()) {
+            player.sendSystemMessage(Component.literal("Der ausgewählte Hotbar-Slot ist leer."));
+            return;
+        }
+
+        // This is a display-only auction: keep the item in the owner's inventory.
+        ItemStack auctionItem = selected.copy();
+
+        long endAt = System.currentTimeMillis() + payload.durationMinutes() * 60_000L;
+        activeAuction = new Auction(player.getUUID(), auctionItem.getHoverName().getString(),
+                auctionItem.getCount(), payload.startPrice(), endAt);
+        player.sendSystemMessage(Component.literal("Auktion gestartet: " + auctionItem.getCount() + "x "
+                + auctionItem.getHoverName().getString() + " | Startpreis: " + payload.startPrice()));
+        sendState(player);
     }
 
-    private static int createAuction(ServerCommandSource source, int startPrice, int minutes) {
-        if (!isAdmin(source)) {
-            source.sendError(Text.literal("Nur der konfigurierte Admin darf Auktionen erstellen."));
-            return 0;
+    private static void tickAuction(MinecraftServer server) {
+        if (activeAuction == null || activeAuction.ended || System.currentTimeMillis() < activeAuction.endAtMillis) {
+            return;
         }
-        if (!(source.getEntity() instanceof ServerPlayerEntity player)) {
-            source.sendError(Text.literal("Diesen Befehl bitte im Spiel ausführen."));
-            return 0;
-        }
-        ItemStack held = player.getMainHandStack();
-        if (held.isEmpty()) {
-            source.sendError(Text.literal("Halte das Item in der Haupthand, das du versteigern möchtest."));
-            return 0;
-        }
-        ItemStack auctionItem = held.copy();
-        auctionItem.setCount(held.getCount());
-        held.decrement(held.getCount());
 
-        long end = System.currentTimeMillis() + minutes * 60_000L;
-        int id = nextId++;
-        AUCTIONS.put(id, new Auction(id, auctionItem, startPrice, startPrice, end, player.getUuid(), null));
-        source.sendFeedback(() -> Text.literal("Auktion #" + id + " erstellt: " + auctionItem.getCount()
-            + "x " + auctionItem.getName().getString() + ", Startpreis " + startPrice
-            + ", Dauer " + minutes + " Minuten."), true);
-        return 1;
+        activeAuction.ended = true;
+        activeAuction.result = "Beendet – keine Gebote (nur Anzeigeauktion).";
+        ServerPlayer owner = server.getPlayerList().getPlayer(activeAuction.owner);
+        if (owner != null) {
+            owner.sendSystemMessage(Component.literal("Deine Auktion ist beendet: " + activeAuction.itemName));
+            sendState(owner);
+        }
     }
 
-    private static int bid(ServerCommandSource source, int id, int amount) {
-        if (!(source.getEntity() instanceof ServerPlayerEntity bidder)) {
-            source.sendError(Text.literal("Nur Spieler können mitbieten."));
-            return 0;
+    private static void sendState(ServerPlayer player) {
+        if (activeAuction == null) {
+            ServerPlayNetworking.send(player, new AuctionPayloads.Sync(false, "", 0, 0, 0L, false, ""));
+            return;
         }
-        Auction auction = AUCTIONS.get(id);
-        if (auction == null) {
-            source.sendError(Text.literal("Diese Auktion existiert nicht."));
-            return 0;
-        }
-        if (System.currentTimeMillis() >= auction.endAt) {
-            source.sendError(Text.literal("Diese Auktion ist bereits beendet."));
-            announceWinner(source.getServer(), auction);
-            return 0;
-        }
-        if (amount <= auction.highestBid) {
-            source.sendError(Text.literal("Dein Gebot muss höher als " + auction.highestBid + " sein."));
-            return 0;
-        }
-        if (!hasMoney(source.getServer(), bidder, amount)) {
-            source.sendError(Text.literal("Du hast nicht genug Scoreboard-Geld (" + MONEY_OBJECTIVE + ")."));
-            return 0;
-        }
-        // Abziehen des vorherigen Gebots und Abbuchen des neuen Gebots.
-        if (auction.highestBidder != null) {
-            addMoney(source.getServer(), auction.highestBidder, auction.highestBid);
-        }
-        addMoney(source.getServer(), bidder.getUuid(), -amount);
-        auction.highestBid = amount;
-        auction.highestBidder = bidder.getUuid();
-        source.sendFeedback(() -> Text.literal("Gebot angenommen: " + amount + " für Auktion #" + id), false);
-        return 1;
-    }
-
-    private static int showAuctions(ServerCommandSource source) {
-        if (AUCTIONS.isEmpty()) {
-            source.sendFeedback(() -> Text.literal("Aktuell gibt es keine Auktionen."), false);
-            return 1;
-        }
-        for (Auction a : AUCTIONS.values()) {
-            boolean ended = System.currentTimeMillis() >= a.endAt;
-            String winner = a.highestBidder == null ? "Kein Gebot" :
-                source.getServer().getUserCache().getByUuid(a.highestBidder)
-                    .map(u -> u.getName()).orElse(a.highestBidder.toString());
-            source.sendFeedback(() -> Text.literal("#" + a.id + " | " + a.stack.getCount() + "x "
-                + a.stack.getName().getString() + " | " + a.highestBid + " $ | "
-                + (ended ? "BEENDET – Gewinner: " + winner : "endet in "
-                + Math.max(0, (a.endAt - System.currentTimeMillis()) / 60000) + " Min.")), false);
-        }
-        return 1;
-    }
-
-    private static int adminHelp(ServerCommandSource source) {
-        if (!isAdmin(source)) {
-            source.sendError(Text.literal("Keine Admin-Berechtigung."));
-            return 0;
-        }
-        source.sendFeedback(() -> Text.literal("Halte ein Item und nutze /auction create <startpreis> <dauerMinuten>."), false);
-        return 1;
-    }
-
-    private static boolean hasMoney(MinecraftServer server, ServerPlayerEntity player, int amount) {
-        ScoreboardObjective objective = server.getScoreboard().getNullableObjective(MONEY_OBJECTIVE);
-        if (objective == null) return false;
-        return server.getScoreboard().getScore(player, objective).getScore() >= amount;
-    }
-
-    private static void addMoney(MinecraftServer server, UUID uuid, int amount) {
-        ScoreboardObjective objective = server.getScoreboard().getNullableObjective(MONEY_OBJECTIVE);
-        if (objective == null) return;
-        server.getUserCache().getByUuid(uuid).ifPresent(user -> {
-            var score = server.getScoreboard().getScore(user, objective);
-            score.setScore(score.getScore() + amount);
-        });
-    }
-
-    private static void announceWinner(MinecraftServer server, Auction auction) {
-        if (auction.announced) return;
-        auction.announced = true;
-        String winner = auction.highestBidder == null ? "Niemand (kein Gebot)" :
-            server.getUserCache().getByUuid(auction.highestBidder).map(u -> u.getName()).orElse("Unbekannt");
-        server.getPlayerManager().broadcast(Text.literal("Auktion #" + auction.id
-            + " beendet! Gewinner: " + winner + " | Endpreis: " + auction.highestBid + " $"), false);
+        ServerPlayNetworking.send(player, new AuctionPayloads.Sync(true, activeAuction.itemName,
+                activeAuction.itemCount, activeAuction.startPrice, activeAuction.endAtMillis,
+                activeAuction.ended, activeAuction.result));
     }
 
     private static final class Auction {
-        final int id;
-        final ItemStack stack;
-        final int startPrice;
-        int highestBid;
-        final long endAt;
-        final UUID seller;
-        UUID highestBidder;
-        boolean announced;
+        private final UUID owner;
+        private final String itemName;
+        private final int itemCount;
+        private final int startPrice;
+        private final long endAtMillis;
+        private boolean ended;
+        private String result = "";
 
-        Auction(int id, ItemStack stack, int startPrice, int highestBid, long endAt, UUID seller, UUID highestBidder) {
-            this.id = id; this.stack = stack; this.startPrice = startPrice;
-            this.highestBid = highestBid; this.endAt = endAt; this.seller = seller;
-            this.highestBidder = highestBidder;
+        private Auction(UUID owner, String itemName, int itemCount, int startPrice, long endAtMillis) {
+            this.owner = owner;
+            this.itemName = itemName;
+            this.itemCount = itemCount;
+            this.startPrice = startPrice;
+            this.endAtMillis = endAtMillis;
         }
     }
 }

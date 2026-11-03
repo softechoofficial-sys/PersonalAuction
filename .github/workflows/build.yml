@@ -2,13 +2,14 @@ name: Build PersonalAuction
 
 on:
   push:
+    branches: [ main, "fix/**" ]
+  pull_request:
     branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -17,12 +18,14 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '25'
+          java-version: "25"
 
-      - name: Setup Gradle
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.5.1"
 
-      - name: Build Mod
+      - name: Build mod
         run: gradle build
 
       - name: Upload JAR
@@ -30,3 +33,4 @@ jobs:
         with:
           name: PersonalAuction
           path: build/libs/*.jar
+          if-no-files-found: error
