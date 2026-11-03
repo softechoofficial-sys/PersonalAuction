@@ -17,14 +17,22 @@ import java.util.UUID;
 public class PersonalAuction implements ModInitializer {
     public static final String MOD_ID = "personalauction";
     private static final List<Auction> AUCTIONS = new ArrayList<>();
+    private static String lastResult = "Noch keine Auktion beendet.";
 
     @Override
     public void onInitialize() {
         PayloadTypeRegistry.serverboundPlay().register(AuctionCreatePayload.TYPE, AuctionCreatePayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(AuctionStatusRequestPayload.TYPE, AuctionStatusRequestPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(AuctionStatusPayload.TYPE, AuctionStatusPayload.CODEC);
+
         ServerPlayNetworking.registerGlobalReceiver(AuctionCreatePayload.TYPE, (payload, context) -> {
             ServerPlayer player = context.player();
             if (!context.server().getPlayerList().isOp(player.nameAndId())) {
                 player.sendSystemMessage(Component.literal("Nur Operatoren dürfen Auktionen erstellen."));
+                return;
+            }
+            if (!AUCTIONS.isEmpty()) {
+                player.sendSystemMessage(Component.literal("Es läuft bereits eine Auktion."));
                 return;
             }
             int slot = payload.inventorySlot();
@@ -48,13 +56,30 @@ public class PersonalAuction implements ModInitializer {
             player.getInventory().removeItem(slot, auctionItem.getCount());
             long endAt = System.currentTimeMillis() + duration * 60_000L;
             AUCTIONS.add(new Auction(auctionItem, price, endAt, player.getUUID()));
+            lastResult = "Auktion läuft.";
             String announcement = "Auktion gestartet: " + auctionItem.getCount() + "x "
                     + auctionItem.getHoverName().getString() + " | Startpreis: " + price
                     + " | Dauer: " + duration + " Minuten.";
             context.server().getPlayerList().broadcastSystemMessage(Component.literal(announcement), false);
         });
 
+        ServerPlayNetworking.registerGlobalReceiver(AuctionStatusRequestPayload.TYPE, (payload, context) ->
+                ServerPlayNetworking.send(context.player(), new AuctionStatusPayload(createStatusMessage())));
+
         ServerTickEvents.END_SERVER_TICK.register(PersonalAuction::tickAuctions);
+    }
+
+    private static String createStatusMessage() {
+        if (AUCTIONS.isEmpty()) {
+            return "Keine aktive Auktion. " + lastResult;
+        }
+        Auction auction = AUCTIONS.get(0);
+        long seconds = Math.max(0, (auction.endAt - System.currentTimeMillis()) / 1000);
+        long minutes = seconds / 60;
+        long remainingSeconds = seconds % 60;
+        return "Aktuell: " + auction.item.getCount() + "x " + auction.item.getHoverName().getString()
+                + " | Startpreis: " + auction.startPrice
+                + " | Restzeit: " + minutes + "m " + remainingSeconds + "s";
     }
 
     private static void tickAuctions(MinecraftServer server) {
@@ -67,10 +92,12 @@ public class PersonalAuction implements ModInitializer {
                 if (seller != null && !seller.getInventory().add(auction.item.copy())) {
                     seller.drop(auction.item.copy(), false);
                 }
+                lastResult = "Beendet: " + auction.item.getCount() + "x "
+                        + auction.item.getHoverName().getString() + " | Ergebnis: kein Verkauf; Item zurückgegeben.";
                 server.getPlayerList().broadcastSystemMessage(
                         Component.literal("Auktion beendet: " + auction.item.getCount() + "x "
                                 + auction.item.getHoverName().getString()
-                                + " | Startpreis: " + auction.startPrice + " | Ergebnis: beendet."),
+                                + " | Startpreis: " + auction.startPrice + " | Ergebnis: kein Verkauf."),
                         false
                 );
                 iterator.remove();
