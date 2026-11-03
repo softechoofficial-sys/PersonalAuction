@@ -16,6 +16,10 @@ public class AuctionScreen extends Screen {
     private static String auctionStatus = "Auktionsstatus wird geladen...";
     private int statusRequestTicks = 0;
 
+    public AuctionScreen() {
+        super(Component.literal("PersonalAuction"));
+    }
+
     public static void setAuctionStatus(String message) {
         auctionStatus = message;
     }
@@ -27,10 +31,6 @@ public class AuctionScreen extends Screen {
             statusRequestTicks = 0;
             ClientPlayNetworking.send(new AuctionStatusRequestPayload());
         }
-    }
-
-    public AuctionScreen() {
-        super(Component.literal("PersonalAuction"));
     }
 
     @Override
@@ -59,6 +59,7 @@ public class AuctionScreen extends Screen {
                 .bounds(center - 100, this.height / 2 + 34, 200, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Schließen"), button -> onClose())
                 .bounds(center - 100, this.height / 2 + 60, 200, 20).build());
+        ClientPlayNetworking.send(new AuctionStatusRequestPayload());
     }
 
     private void changeSelectedSlot(int direction) {
@@ -73,7 +74,7 @@ public class AuctionScreen extends Screen {
                 throw new NumberFormatException();
             }
             ClientPlayNetworking.send(new AuctionCreatePayload(selectedSlot, price, duration));
-            onClose();
+            errorMessage = "Auktionsanfrage gesendet. Serverbestätigung abwarten.";
         } catch (NumberFormatException exception) {
             errorMessage = "Ungültiger Startpreis oder ungültige Dauer (1 bis 10080 Minuten).";
         }
@@ -85,7 +86,9 @@ public class AuctionScreen extends Screen {
         ItemStack selectedItem = this.minecraft.player.getInventory().getItem(selectedSlot);
         String itemName = selectedItem.isEmpty() ? "Leer" : selectedItem.getHoverName().getString()
                 + " x" + selectedItem.getCount();
-        graphics.text(this.font, auctionStatus, this.width / 2 - 120, this.height / 2 - 105,\n                0xFFFFFFFF, true);\n        graphics.text(this.font, "Item (Slot " + selectedSlot + "): " + itemName, this.width / 2 - 75,
+        graphics.text(this.font, auctionStatus, this.width / 2 - 120, this.height / 2 - 105,
+                0xFFFFFFFF, true);
+        graphics.text(this.font, "Item (Slot " + selectedSlot + "): " + itemName, this.width / 2 - 75,
                 this.height / 2 - 76, 0xFFFFFFFF, true);
         graphics.text(this.font, "Startpreis", this.width / 2 - 100, this.height / 2 - 40,
                 0xFFAAAAAA, true);
