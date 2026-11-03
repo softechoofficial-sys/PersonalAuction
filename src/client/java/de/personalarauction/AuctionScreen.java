@@ -1,6 +1,6 @@
 package de.personalarauction;
 
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
@@ -12,8 +12,14 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 
 public class AuctionScreen extends Screen {
     private EditBox priceField;
@@ -22,100 +28,148 @@ public class AuctionScreen extends Screen {
     private String errorMessage = "";
     private final List<Item> selectableItems = new ArrayList<>();
     private int selectedItemIndex = 0;
-    private static String auctionStatus = "Auktionsstatus wird geladen...";
-    private static boolean canCreate = false;
-    private static String activeAuctionItemId = "";
+    private static String activeItemId = "";
+    private static String activeItemName = "";
+    private static int activeStartPrice;
+    private static long auctionEndAt;
+    private static String lastResult = "";
     private static String paymentNotice = "";
-    private static AuctionScreen currentScreen;
-    private final List<AbstractWidget> creatorWidgets = new ArrayList<>();
-    private int statusRequestTicks = 0;
+    private static Path saveFile;
 
     public AuctionScreen() {
         super(Component.literal("PersonalAuction"));
-        currentScreen = this;
         BuiltInRegistries.ITEM.forEach(selectableItems::add);
         selectableItems.removeIf(item -> item == net.minecraft.world.item.Items.AIR);
+        loadState();
     }
 
     public static void setPaymentNotice(String message) {
         paymentNotice = message;
     }
 
-    public static void setAuctionStatus(String message, boolean permission, String itemId) {
-        auctionStatus = message;
-        canCreate = permission;
-        activeAuctionItemId = itemId == null ? "" : itemId;
-        if (currentScreen != null) currentScreen.updateCreatorVisibility();
+    public static void tickAuction() {
+        if (!activeItemId.isEmpty() && auctionEndAt > 0 && System.currentTimeMillis() >= auctionEndAt) {
+            lastResult = "Auktion beendet: " + activeItemName + " | Kein Verkauf (keine Gebote).";
+            clearActiveAuction();
+            saveState();
+        }
     }
 
-    private void updateCreatorVisibility() {
-        for (AbstractWidget widget : creatorWidgets) {
-            widget.visible = canCreate;
-            widget.active = canCreate;
+    private static boolean hasActiveAuction() {
+        return !activeItemId.isEmpty() && auctionEndAt > System.currentTimeMillis();
+    }
+
+    private static String getStatus() {
+        if (!hasActiveAuction()) return lastResult.isBlank() ? "Keine aktive Auktion." : lastResult;
+        long seconds = Math.max(0, (auctionEndAt - System.currentTimeMillis()) / 1000);
+        return "Aktuell: " + activeItemName + " | Startpreis: " + activeStartPrice
+                + " Cash | Restzeit: " + (seconds / 60) + "m " + (seconds % 60) + "s";
+    }
+
+    private static void clearActiveAuction() {
+        activeItemId = "";
+        activeItemName = "";
+        activeStartPrice = 0;
+        auctionEndAt = 0;
+    }
+
+    private static Path getSaveFile() {
+        if (saveFile == null) saveFile = FabricLoader.getInstance().getConfigDir().resolve("personalauction.properties");
+        return saveFile;
+    }
+
+    private static void loadState() {
+        Path file = getSaveFile();
+        if (!Files.exists(file)) return;
+        Properties properties = new Properties();
+        try (InputStream input = Files.newInputStream(file)) {
+            properties.load(input);
+            lastResult = properties.getProperty("auction.lastResult", "");
+            activeItemId = properties.getProperty("auction.item", "");
+            activeItemName = properties.getProperty("auction.itemName", "");
+            activeStartPrice = Integer.parseInt(properties.getProperty("auction.price", "0"));
+            auctionEndAt = Long.parseLong(properties.getProperty("auction.endAt", "0"));
+            if (!activeItemId.isBlank()) {
+                Identifier id = Identifier.tryParse(activeItemId);
+                Item item = id == null ? null : BuiltInRegistries.ITEM.get(id)
+                        .map(reference -> reference.value()).orElse(null);
+                if (item == null || item == net.minecraft.world.item.Items.AIR
+                        || activeStartPrice < 1 || auctionEndAt <= System.currentTimeMillis()) {
+                    clearActiveAuction();
+                    if (auctionEndAt > 0 && auctionEndAt <= System.currentTimeMillis()) {
+                        lastResult = "Auktion beendet: " + activeItemName + " | Kein Verkauf (keine Gebote).";
+                    }
+                    saveState();
+                } else if (activeItemName.isBlank()) {
+                    activeItemName = item.getDefaultInstance().getHoverName().getString();
+                }
+            }
+        } catch (IOException | NumberFormatException exception) {
+            System.err.println("[PersonalAuction] Lokaler Auktionsstand konnte nicht geladen werden: " + exception.getMessage());
         }
-        if (endAuctionButton != null) {
-            boolean showEndButton = canCreate && !activeAuctionItemId.isEmpty();
-            endAuctionButton.visible = showEndButton;
-            endAuctionButton.active = showEndButton;
+    }
+
+    private static void saveState() {
+        Properties properties = new Properties();
+        if (!lastResult.isBlank()) properties.setProperty("auction.lastResult", lastResult);
+        if (!activeItemId.isBlank()) {
+            properties.setProperty("auction.item", activeItemId);
+            properties.setProperty("auction.itemName", activeItemName);
+            properties.setProperty("auction.price", Integer.toString(activeStartPrice));
+            properties.setProperty("auction.endAt", Long.toString(auctionEndAt));
+        }
+        Path file = getSaveFile();
+        try {
+            Files.createDirectories(file.getParent());
+            try (OutputStream output = Files.newOutputStream(file)) {
+                properties.store(output, "PersonalAuction local client state");
+            }
+        } catch (IOException exception) {
+            System.err.println("[PersonalAuction] Lokaler Auktionsstand konnte nicht gespeichert werden: " + exception.getMessage());
         }
     }
 
     @Override
     public void tick() {
         super.tick();
-        if (this.minecraft.player != null && ++statusRequestTicks >= 20) {
-            statusRequestTicks = 0;
-            ClientPlayNetworking.send(new AuctionStatusRequestPayload());
-        }
+        tickAuction();
     }
 
     @Override
     protected void init() {
-        creatorWidgets.clear();
         int center = this.width / 2;
-        Button previous = Button.builder(Component.literal("<"), button -> changeSelectedItem(-1))
-                .bounds(center - 100, this.height / 2 - 82, 20, 20).build();
-        addRenderableWidget(previous);
-        creatorWidgets.add(previous);
-        Button next = Button.builder(Component.literal(">"), button -> changeSelectedItem(1))
-                .bounds(center + 80, this.height / 2 - 82, 20, 20).build();
-        addRenderableWidget(next);
-        creatorWidgets.add(next);
+        addRenderableWidget(Button.builder(Component.literal("<"), button -> changeSelectedItem(-1))
+                .bounds(center - 100, this.height / 2 - 82, 20, 20).build());
+        addRenderableWidget(Button.builder(Component.literal(">"), button -> changeSelectedItem(1))
+                .bounds(center + 80, this.height / 2 - 82, 20, 20).build());
 
         priceField = new EditBox(this.font, center - 100, this.height / 2 - 28, 200, 20, Component.literal("Startpreis"));
         priceField.setMaxLength(10);
         priceField.setValue("100");
-        priceField.setHint(Component.literal("Startpreis"));
+        priceField.setHint(Component.literal("Startpreis in Cash"));
         addRenderableWidget(priceField);
-        creatorWidgets.add(priceField);
 
-        durationField = new EditBox(this.font, center - 100, this.height / 2 + 2, 200, 20, Component.literal("Dauer in Minuten"));
+        durationField = new EditBox(this.font, center - 100, this.height / 2 + 2, 200, 20, Component.literal("Dauer"));
         durationField.setMaxLength(5);
         durationField.setValue("5");
         durationField.setHint(Component.literal("Dauer in Minuten"));
         addRenderableWidget(durationField);
-        creatorWidgets.add(durationField);
 
-        Button start = Button.builder(Component.literal("Auktion starten"), button -> startAuction())
-                .bounds(center - 100, this.height / 2 + 34, 200, 20).build();
-        addRenderableWidget(start);
-        creatorWidgets.add(start);
-        endAuctionButton = Button.builder(Component.literal("Auktion Beenden"), button -> {
-                    ClientPlayNetworking.send(new AuctionEndPayload());
-                    errorMessage = "Anfrage zum Beenden der Auktion gesendet.";
-                })
+        addRenderableWidget(Button.builder(Component.literal("Auktion starten"), button -> startAuction())
+                .bounds(center - 100, this.height / 2 + 34, 200, 20).build());
+        endAuctionButton = Button.builder(Component.literal("Auktion beenden"), button -> endAuction())
                 .bounds(center - 100, this.height / 2 + 60, 200, 20).build();
         addRenderableWidget(endAuctionButton);
         addRenderableWidget(Button.builder(Component.literal("Schließen"), button -> onClose())
                 .bounds(center - 100, this.height / 2 + 86, 200, 20).build());
-        updateCreatorVisibility();
-        ClientPlayNetworking.send(new AuctionStatusRequestPayload());
+        updateEndButton();
     }
 
-    @Override
-    public void removed() {
-        if (currentScreen == this) currentScreen = null;
-        super.removed();
+    private void updateEndButton() {
+        if (endAuctionButton != null) {
+            endAuctionButton.visible = hasActiveAuction();
+            endAuctionButton.active = hasActiveAuction();
+        }
     }
 
     private void changeSelectedItem(int direction) {
@@ -125,53 +179,66 @@ public class AuctionScreen extends Screen {
     }
 
     private void startAuction() {
-        if (!canCreate) {
-            errorMessage = "Keine Berechtigung zum Erstellen von Auktionen.";
+        if (hasActiveAuction()) {
+            errorMessage = "Es läuft bereits eine Auktion.";
             return;
         }
         try {
             int price = Integer.parseInt(priceField.getValue());
             int duration = Integer.parseInt(durationField.getValue());
-            if (price < 1 || duration < 1 || duration > 10080 || selectableItems.isEmpty()) {
+            if (price < 1 || price > 1_000_000_000 || duration < 1 || duration > 10080 || selectableItems.isEmpty()) {
                 throw new NumberFormatException();
             }
-            Identifier itemId = BuiltInRegistries.ITEM.getKey(selectableItems.get(selectedItemIndex));
-            ClientPlayNetworking.send(new AuctionCreatePayload(itemId.toString(), price, duration));
-            errorMessage = "Auktionsanfrage gesendet. Serverbestätigung abwarten.";
+            Item selected = selectableItems.get(selectedItemIndex);
+            activeItemId = BuiltInRegistries.ITEM.getKey(selected).toString();
+            activeItemName = selected.getDefaultInstance().getHoverName().getString();
+            activeStartPrice = price;
+            auctionEndAt = System.currentTimeMillis() + duration * 60_000L;
+            lastResult = "";
+            errorMessage = "Auktion lokal gestartet.";
+            saveState();
+            updateEndButton();
         } catch (NumberFormatException exception) {
             errorMessage = "Ungültiger Startpreis, Dauer oder Item-Auswahl.";
         }
     }
 
+    private void endAuction() {
+        if (!hasActiveAuction()) return;
+        lastResult = "Auktion vorzeitig beendet: " + activeItemName + " | Kein Verkauf (keine Gebote).";
+        clearActiveAuction();
+        saveState();
+        errorMessage = "Auktion lokal beendet.";
+        updateEndButton();
+    }
+
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
-        if (!activeAuctionItemId.isEmpty()) {
-            Identifier activeId = Identifier.tryParse(activeAuctionItemId);
-            Item activeItem = activeId == null ? null
-                    : BuiltInRegistries.ITEM.get(activeId).map(reference -> reference.value()).orElse(null);
-            if (activeItem != null && activeItem != net.minecraft.world.item.Items.AIR) {
-                graphics.item(activeItem.getDefaultInstance(), this.width / 2 - 120, this.height / 2 - 110);
+        if (hasActiveAuction()) {
+            Identifier id = Identifier.tryParse(activeItemId);
+            Item item = id == null ? null : BuiltInRegistries.ITEM.get(id)
+                    .map(reference -> reference.value()).orElse(null);
+            if (item != null && item != net.minecraft.world.item.Items.AIR) {
+                graphics.item(item.getDefaultInstance(), this.width / 2 - 120, this.height / 2 - 110);
             }
         }
-        graphics.text(this.font, auctionStatus, this.width / 2 - 96, this.height / 2 - 105, 0xFFFFFFFF, true);
-        if (canCreate) {
-            if (!selectableItems.isEmpty()) {
-                Item selected = selectableItems.get(selectedItemIndex);
-                ItemStack preview = selected.getDefaultInstance();
-                graphics.item(preview, this.width / 2 - 8, this.height / 2 - 82);
-                graphics.text(this.font, preview.getHoverName().getString(),
-                        this.width / 2 + 14, this.height / 2 - 76, 0xFFFFFFFF, true);
-            }
-            graphics.text(this.font, "Startpreis", this.width / 2 - 100, this.height / 2 - 40, 0xFFAAAAAA, true);
-            graphics.text(this.font, "Dauer (Minuten)", this.width / 2 - 100, this.height / 2 - 10, 0xFFAAAAAA, true);
+        graphics.text(this.font, getStatus(), this.width / 2 - 120, this.height / 2 - 105, 0xFFFFFFFF, true);
+        if (!selectableItems.isEmpty()) {
+            ItemStack preview = selectableItems.get(selectedItemIndex).getDefaultInstance();
+            graphics.item(preview, this.width / 2 - 8, this.height / 2 - 82);
+            graphics.text(this.font, preview.getHoverName().getString(),
+                    this.width / 2 + 14, this.height / 2 - 76, 0xFFFFFFFF, true);
         }
+        graphics.text(this.font, "Startpreis (Cash)", this.width / 2 - 100, this.height / 2 - 40, 0xFFAAAAAA, true);
+        graphics.text(this.font, "Dauer (Minuten)", this.width / 2 - 100, this.height / 2 - 10, 0xFFAAAAAA, true);
         if (!paymentNotice.isEmpty()) {
             graphics.text(this.font, paymentNotice, this.width / 2 - 120, this.height / 2 + 108, 0xFF55FF55, true);
         }
         if (!errorMessage.isEmpty()) {
-            graphics.text(this.font, errorMessage, this.width / 2 - 100, this.height / 2 + 88, 0xFFFF5555, true);
+            graphics.text(this.font, errorMessage, this.width / 2 - 120, this.height / 2 + 130, 0xFFFFAA55, true);
         }
+        updateEndButton();
     }
 
     @Override
