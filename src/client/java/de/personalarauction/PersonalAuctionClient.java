@@ -14,12 +14,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitializer {
+    // Nur diese vollständige Server-Systemmeldung zählt als Zahlung.
     private static final Pattern CASH_PAYMENT_MESSAGE =
-            Pattern.compile("^(.+?) hat dir \\$([0-9][0-9.,]*) gezahlt$", Pattern.CASE_INSENSITIVE);
+            Pattern.compile("^([A-Za-z0-9_]{1,16}) hat dir \\$([0-9]+(?:[.,][0-9]+)?) gezahlt$", Pattern.CASE_INSENSITIVE);
     // Manche Server/Chat-Handler liefern dieselbe Systemmeldung mehrfach direkt hintereinander.
     // Nur unmittelbare Duplikate blockieren; echte wiederholte Zahlungen bleiben danach zählbar.
     private static final Map<String, Long> RECENT_PAYMENT_MESSAGES = new HashMap<>();
-    private static final long DUPLICATE_WINDOW_NANOS = 500_000_000L;
+    private static final long DUPLICATE_WINDOW_NANOS = 2_000_000_000L;
 
     private static synchronized boolean isDuplicatePaymentMessage(String sender, String amount) {
         long now = System.nanoTime();
