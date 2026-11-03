@@ -95,7 +95,8 @@ public class ItemPickerScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
-        graphics.text(this.font, "Item für die Auktion auswählen", this.width / 2, 16, 0xFFFFFFFF, true);
+        graphics.fill(this.width / 2 - 96, 27, this.width / 2 + 96, 28, 0xFF8FC9EE);
+        graphics.text(this.font, "Item für die Auktion auswählen", this.width / 2, 16, 0xFFAEDFFF, true);
         List<Item> filtered = getFilteredItems();
         int pageCount = getPageCount();
         if (page >= pageCount) page = pageCount - 1;
@@ -111,15 +112,21 @@ public class ItemPickerScreen extends Screen {
             int x = startX + column * CELL_SIZE;
             int y = startY + row * CELL_SIZE;
             Item item = filtered.get(index);
+            graphics.fill(x, y, x + CELL_SIZE - 1, y + CELL_SIZE - 1, 0xAA263746);
+            graphics.fill(x, y, x + CELL_SIZE - 1, y + 1, 0xFF45627A);
             graphics.item(item.getDefaultInstance(), x + 2, y + 2);
             if (mouseX >= x && mouseX < x + CELL_SIZE && mouseY >= y && mouseY < y + CELL_SIZE) {
+                graphics.fill(x, y, x + CELL_SIZE - 1, y + 1, 0xFFB8E2FF);
+                graphics.fill(x, y + CELL_SIZE - 1, x + CELL_SIZE - 1, y + CELL_SIZE, 0xFFB8E2FF);
+                graphics.fill(x, y, x + 1, y + CELL_SIZE - 1, 0xFFB8E2FF);
+                graphics.fill(x + CELL_SIZE - 1, y, x + CELL_SIZE, y + CELL_SIZE - 1, 0xFFB8E2FF);
                 graphics.text(this.font, item.getDefaultInstance().getHoverName(),
-                        this.width / 2, this.height - 52, 0xFFFFFFFF, true);
+                        this.width / 2, this.height - 52, 0xFFB8E2FF, true);
             }
         }
 
         graphics.text(this.font, filtered.size() + " Items | Seite " + (page + 1) + "/" + pageCount,
-                this.width / 2, this.height - 44, 0xFFAAAAAA, true);
+                this.width / 2, this.height - 44, 0xFFAEDFFF, true);
         updatePageButtons();
     }
 
