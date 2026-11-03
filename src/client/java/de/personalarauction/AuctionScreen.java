@@ -154,13 +154,13 @@ public class AuctionScreen extends Screen {
             properties.setProperty("auction.itemName", activeItemName);
             properties.setProperty("auction.price", Integer.toString(activeStartPrice));
             properties.setProperty("auction.endAt", Long.toString(auctionEndAt));
-            properties.setProperty("auction.paymentCount", Integer.toString(paymentTotals.size()));
-            int paymentIndex = 0;
-            for (Map.Entry<String, Long> entry : paymentTotals.entrySet()) {
-                properties.setProperty("auction.payment." + paymentIndex + ".player", entry.getKey());
-                properties.setProperty("auction.payment." + paymentIndex + ".total", Long.toString(entry.getValue()));
-                paymentIndex++;
-            }
+        }
+        properties.setProperty("auction.paymentCount", Integer.toString(paymentTotals.size()));
+        int paymentIndex = 0;
+        for (Map.Entry<String, Long> entry : paymentTotals.entrySet()) {
+            properties.setProperty("auction.payment." + paymentIndex + ".player", entry.getKey());
+            properties.setProperty("auction.payment." + paymentIndex + ".total", Long.toString(entry.getValue()));
+            paymentIndex++;
         }
         Path file = getSaveFile();
         try {
@@ -308,7 +308,7 @@ public class AuctionScreen extends Screen {
         graphics.fill(left + 14, top + 128, left + 206, top + 130, 0xFF3C5068);
         graphics.text(this.font, "AKTUELLER GEWINNER", left + 16, top + 137, 0xFF91A9C5, true);
         graphics.text(this.font, getCurrentWinner(), left + 16, top + 155, 0xFF65E6A5, true);
-        graphics.text(this.font, "Item bleibt im Inventar", left + 16, top + 178, 0xFF8795A7, true);
+        graphics.text(this.font, "Item bleibt im Inventar", left + 16, top + 169, 0xFF8795A7, true);
         graphics.text(this.font, "Startpreis (Cash)", left + 16, top + 180, 0xFFB8C3D1, true);
         graphics.text(this.font, "Dauer (Min.)", left + 16, top + 219, 0xFFB8C3D1, true);
 
@@ -338,7 +338,7 @@ public class AuctionScreen extends Screen {
                     left + 224, bottom - 18, 0xFF8795A7, true);
         }
         if (!paymentNotice.isEmpty()) {
-            graphics.text(this.font, paymentNotice, left + 224, bottom - 18, 0xFF65E6A5, true);
+            graphics.text(this.font, paymentNotice, left + 224, top + 238, 0xFF65E6A5, true);
         }
         if (!errorMessage.isEmpty()) {
             graphics.text(this.font, errorMessage, left + 16, bottom - 16, 0xFFFFB86B, true);
