@@ -1,5 +1,6 @@
+
 plugins {
-    id 'net.fabricmc.fabric-loom' version '1.17'
+    id 'net.fabricmc.fabric-loom' version '1.17.21'
 }
 
 version = project.mod_version
@@ -15,12 +16,15 @@ repositories {
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
+
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 }
 
 processResources {
     inputs.property "version", project.version
+
     filesMatching("fabric.mod.json") {
         expand "version": project.version
     }
@@ -30,5 +34,6 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
     }
+
     withSourcesJar()
 }
