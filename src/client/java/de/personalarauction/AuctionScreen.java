@@ -1,6 +1,7 @@
 package de.personalarauction;
 
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
@@ -25,6 +26,7 @@ public class AuctionScreen extends Screen {
     private EditBox priceField;
     private EditBox durationField;
     private Button endAuctionButton;
+    private Button itemPickerButton;
     private String errorMessage = "";
     private final List<Item> selectableItems = new ArrayList<>();
     private int selectedItemIndex = 0;
@@ -138,10 +140,9 @@ public class AuctionScreen extends Screen {
     @Override
     protected void init() {
         int center = this.width / 2;
-        addRenderableWidget(Button.builder(Component.literal("<"), button -> changeSelectedItem(-1))
-                .bounds(center - 100, this.height / 2 - 82, 20, 20).build());
-        addRenderableWidget(Button.builder(Component.literal(">"), button -> changeSelectedItem(1))
-                .bounds(center + 80, this.height / 2 - 82, 20, 20).build());
+        itemPickerButton = Button.builder(getSelectedItemLabel(), button -> openItemPicker())
+                .bounds(center - 100, this.height / 2 - 82, 200, 20).build();
+        addRenderableWidget(itemPickerButton);
 
         priceField = new EditBox(this.font, center - 100, this.height / 2 - 28, 200, 20, Component.literal("Startpreis"));
         priceField.setMaxLength(10);
@@ -172,10 +173,18 @@ public class AuctionScreen extends Screen {
         }
     }
 
-    private void changeSelectedItem(int direction) {
-        if (!selectableItems.isEmpty()) {
-            selectedItemIndex = Math.floorMod(selectedItemIndex + direction, selectableItems.size());
-        }
+    private Component getSelectedItemLabel() {
+        if (selectableItems.isEmpty()) return Component.literal("Kein Item verfügbar");
+        return Component.literal("Item auswählen: " + selectableItems.get(selectedItemIndex)
+                .getDefaultInstance().getHoverName().getString());
+    }
+
+    private void openItemPicker() {
+        Minecraft.getInstance().setScreenAndShow(new ItemPickerScreen(this, selected -> {
+            int index = selectableItems.indexOf(selected);
+            if (index >= 0) selectedItemIndex = index;
+            if (itemPickerButton != null) itemPickerButton.setMessage(getSelectedItemLabel());
+        }));
     }
 
     private void startAuction() {
@@ -227,8 +236,8 @@ public class AuctionScreen extends Screen {
         if (!selectableItems.isEmpty()) {
             ItemStack preview = selectableItems.get(selectedItemIndex).getDefaultInstance();
             graphics.item(preview, this.width / 2 - 8, this.height / 2 - 82);
-            graphics.text(this.font, preview.getHoverName().getString(),
-                    this.width / 2 + 14, this.height / 2 - 76, 0xFFFFFFFF, true);
+            graphics.text(this.font, "Ausgewähltes Auktionsitem", this.width / 2 - 100,
+                    this.height / 2 - 96, 0xFFAAAAAA, true);
         }
         graphics.text(this.font, "Startpreis (Cash)", this.width / 2 - 100, this.height / 2 - 40, 0xFFAAAAAA, true);
         graphics.text(this.font, "Dauer (Minuten)", this.width / 2 - 100, this.height / 2 - 10, 0xFFAAAAAA, true);
