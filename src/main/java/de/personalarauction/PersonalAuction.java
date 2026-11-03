@@ -27,9 +27,14 @@ public class PersonalAuction implements ModInitializer {
                 player.sendSystemMessage(Component.literal("Nur Operatoren dürfen Auktionen erstellen."));
                 return;
             }
-            ItemStack held = player.getMainHandItem();
+            int slot = payload.inventorySlot();
+            if (slot < 0 || slot >= 36) {
+                player.sendSystemMessage(Component.literal("Ungültiger Inventar-Slot."));
+                return;
+            }
+            ItemStack held = player.getInventory().getItem(slot);
             if (held.isEmpty()) {
-                player.sendSystemMessage(Component.literal("Halte zuerst das Auktions-Item in der Haupthand."));
+                player.sendSystemMessage(Component.literal("Der ausgewählte Inventar-Slot ist leer."));
                 return;
             }
             int price = payload.startPrice();
@@ -40,7 +45,7 @@ public class PersonalAuction implements ModInitializer {
             }
 
             ItemStack auctionItem = held.copy();
-            held.shrink(held.getCount());
+            player.getInventory().removeItem(slot, auctionItem.getCount());
             long endAt = System.currentTimeMillis() + duration * 60_000L;
             AUCTIONS.add(new Auction(auctionItem, price, endAt, player.getUUID()));
             String announcement = "Auktion gestartet: " + auctionItem.getCount() + "x "
