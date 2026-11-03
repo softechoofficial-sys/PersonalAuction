@@ -63,8 +63,11 @@ public class PersonalAuction implements ModInitializer {
             context.server().getPlayerList().broadcastSystemMessage(Component.literal(announcement), false);
         });
 
-        ServerPlayNetworking.registerGlobalReceiver(AuctionStatusRequestPayload.TYPE, (payload, context) ->
-                ServerPlayNetworking.send(context.player(), new AuctionStatusPayload(createStatusMessage())));
+        ServerPlayNetworking.registerGlobalReceiver(AuctionStatusRequestPayload.TYPE, (payload, context) -> {
+            ServerPlayer player = context.player();
+            boolean canCreate = context.server().getPlayerList().isOp(player.nameAndId());
+            ServerPlayNetworking.send(player, new AuctionStatusPayload(createStatusMessage(), canCreate));
+        });
 
         ServerTickEvents.END_SERVER_TICK.register(PersonalAuction::tickAuctions);
     }
