@@ -467,13 +467,18 @@ public class AuctionScreen extends Screen {
                     ? latePayments.get(row - ranked.size())
                     : ranked.get(row);
             int rowY = top + 123 + (row - paymentScroll) * 15;
-            if (!late && row == 0) graphics.fill(left + 220, rowY - 3, right - 14, rowY + 12,
-                    hasQualifiedWinner() ? 0xFF29483F : 0xFF542D32);
+            boolean belowStartingPrice = !late && entry.getValue() < activeStartingPrice;
+            if (!late && (row == 0 || belowStartingPrice)) {
+                int backgroundColor = belowStartingPrice
+                        ? 0xFF542D32
+                        : (hasQualifiedWinner() ? 0xFF29483F : 0xFF542D32);
+                graphics.fill(left + 220, rowY - 3, right - 14, rowY + 12, backgroundColor);
+            }
             String playerLabel = late
                     ? (ranked.size() + (row - ranked.size()) + 1) + ". " + entry.getKey() + " (nach Auktion)"
                     : (row + 1) + ". " + entry.getKey();
-            int rowColor = late ? 0xFFFF6B6B
-                    : (row == 0 ? (hasQualifiedWinner() ? 0xFF65E6A5 : 0xFFFF6B6B) : 0xFFE0E6ED);
+            int rowColor = late || belowStartingPrice ? 0xFFFF6B6B
+                    : (row == 0 ? 0xFF65E6A5 : 0xFFE0E6ED);
             graphics.text(this.font, fitText(playerLabel, 112), left + 224, rowY, rowColor, true);
             String total = fitText("$" + entry.getValue(), 66);
             graphics.text(this.font, total, right - 16 - this.font.width(total), rowY,
