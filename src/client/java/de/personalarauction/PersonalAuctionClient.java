@@ -11,7 +11,7 @@ public class PersonalAuctionClient implements ClientModInitializer {
     public void onInitializeClient() {
         ClientPlayNetworking.registerGlobalReceiver(AuctionStatusPayload.TYPE, (payload, context) ->
                 context.client().execute(() ->
-                        AuctionScreen.setAuctionStatus(payload.message(), payload.canCreate())));
+                        AuctionScreen.setAuctionStatus(payload.message(), payload.canCreate(), payload.itemId())));
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, buildContext) ->
                 dispatcher.register(ClientCommands.literal("auction")
