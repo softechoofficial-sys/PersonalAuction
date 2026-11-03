@@ -48,9 +48,8 @@ public class AuctionScreen extends Screen {
             ClientPlayNetworking.send(new AuctionCreatePayload(price, duration));
             onClose();
         } catch (NumberFormatException exception) {
-            this.minecraft.player.displayClientMessage(
-                    Component.literal("Bitte gib einen Startpreis ab 1 und eine Dauer von 1 bis 10080 Minuten ein."),
-                    false
+            this.minecraft.gui.getChat().addMessage(
+                    Component.literal("Bitte gib einen Startpreis ab 1 und eine Dauer von 1 bis 10080 Minuten ein.")
             );
         }
     }
