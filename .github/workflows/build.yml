@@ -2,13 +2,14 @@ name: Build PersonalAuction
 
 on:
   push:
+    branches: [ main, "fix/**" ]
+  pull_request:
     branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,14 +20,17 @@ jobs:
           distribution: temurin
           java-version: '25'
 
-      - name: Setup Gradle
+      - name: Set up Gradle 9.5.1
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.1'
 
       - name: Build Mod
-        run: gradle build
+        run: gradle build --no-daemon
 
       - name: Upload JAR
         uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: PersonalAuction
           path: build/libs/*.jar
