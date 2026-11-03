@@ -1,17 +1,17 @@
 package de.personalarauction;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.storage.LevelResource;
 
 import java.io.IOException;
@@ -28,7 +28,6 @@ import java.util.Properties;
 public class PersonalAuction implements ModInitializer {
     public static final String MOD_ID = "personalauction";
     private static final List<Auction> AUCTIONS = new ArrayList<>();
-    private static String lastResult = "Noch keine Auktion beendet.";
     private static Path saveFile;
 
     @Override
@@ -53,7 +52,7 @@ public class PersonalAuction implements ModInitializer {
                 return;
             }
             Item item = BuiltInRegistries.ITEM.get(itemId).map(reference -> reference.value()).orElse(null);
-            if (item == null || item == net.minecraft.world.item.Items.AIR) {
+            if (item == null || item == Items.AIR) {
                 player.sendSystemMessage(Component.literal("Bitte ein gültiges Item auswählen."));
                 return;
             }
@@ -65,8 +64,7 @@ public class PersonalAuction implements ModInitializer {
             }
             long endAt = System.currentTimeMillis() + duration * 60_000L;
             String itemName = item.getDefaultInstance().getHoverName().getString();
-            AUCTIONS.add(new Auction(itemName, price, endAt));
-            lastResult = "Auktion läuft.";
+            AUCTIONS.add(new Auction(itemId.toString(), itemName, price, endAt));
             saveState();
             context.server().getPlayerList().broadcastSystemMessage(
                     Component.literal("Auktion gestartet: " + itemName + " | Startpreis: " + price
@@ -76,7 +74,9 @@ public class PersonalAuction implements ModInitializer {
         ServerPlayNetworking.registerGlobalReceiver(AuctionStatusRequestPayload.TYPE, (payload, context) -> {
             ServerPlayer player = context.player();
             boolean canCreate = context.server().getPlayerList().isOp(player.nameAndId());
-            ServerPlayNetworking.send(player, new AuctionStatusPayload(createStatusMessage(), canCreate));
+            Auction active = AUCTIONS.isEmpty() ? null : AUCTIONS.get(0);
+            ServerPlayNetworking.send(player, new AuctionStatusPayload(
+                    createStatusMessage(), canCreate, active == null ? "" : active.itemId));
         });
 
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
@@ -93,20 +93,21 @@ public class PersonalAuction implements ModInitializer {
         Properties properties = new Properties();
         try (InputStream input = Files.newInputStream(saveFile)) {
             properties.load(input);
-            String itemName = properties.getProperty("auction.item");
-            if (itemName != null) {
+            String itemId = properties.getProperty("auction.item");
+            if (itemId != null) {
                 int price = Integer.parseInt(properties.getProperty("auction.price"));
                 long endAt = Long.parseLong(properties.getProperty("auction.endAt"));
-                if (price > 0 && endAt > System.currentTimeMillis()) {
-                    AUCTIONS.add(new Auction(itemName, price, endAt));
+                Identifier identifier = Identifier.tryParse(itemId);
+                Item item = identifier == null ? null
+                        : BuiltInRegistries.ITEM.get(identifier).map(reference -> reference.value()).orElse(null);
+                if (item != null && item != Items.AIR && price > 0 && endAt > System.currentTimeMillis()) {
+                    AUCTIONS.add(new Auction(itemId, item.getDefaultInstance().getHoverName().getString(), price, endAt));
                 } else {
-                    lastResult = "Beendet: " + itemName + " | Ergebnis: kein Verkauf (Serverneustart).";
                     saveState();
                 }
             }
         } catch (IOException | NumberFormatException exception) {
             AUCTIONS.clear();
-            lastResult = "Auktionsspeicher konnte nicht gelesen werden.";
             System.err.println("[PersonalAuction] Konnte Auktionsdaten nicht laden: " + exception.getMessage());
         }
     }
@@ -116,7 +117,7 @@ public class PersonalAuction implements ModInitializer {
         Properties properties = new Properties();
         if (!AUCTIONS.isEmpty()) {
             Auction auction = AUCTIONS.get(0);
-            properties.setProperty("auction.item", auction.itemName);
+            properties.setProperty("auction.item", auction.itemId);
             properties.setProperty("auction.price", Integer.toString(auction.startPrice));
             properties.setProperty("auction.endAt", Long.toString(auction.endAt));
         }
@@ -124,7 +125,7 @@ public class PersonalAuction implements ModInitializer {
             Files.createDirectories(saveFile.getParent());
             Path temporaryFile = saveFile.resolveSibling(saveFile.getFileName() + ".tmp");
             try (OutputStream output = Files.newOutputStream(temporaryFile)) {
-                properties.store(output, "PersonalAuction state");
+                properties.store(output, "PersonalAuction active auction");
             }
             try {
                 Files.move(temporaryFile, saveFile, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
@@ -137,7 +138,7 @@ public class PersonalAuction implements ModInitializer {
     }
 
     private static String createStatusMessage() {
-        if (AUCTIONS.isEmpty()) return "Keine aktive Auktion. " + lastResult;
+        if (AUCTIONS.isEmpty()) return "Keine aktive Auktion.";
         Auction auction = AUCTIONS.get(0);
         long seconds = Math.max(0, (auction.endAt - System.currentTimeMillis()) / 1000);
         return "Aktuell: " + auction.itemName + " | Startpreis: " + auction.startPrice
@@ -149,15 +150,14 @@ public class PersonalAuction implements ModInitializer {
         while (iterator.hasNext()) {
             Auction auction = iterator.next();
             if (System.currentTimeMillis() >= auction.endAt) {
-                lastResult = "Beendet: " + auction.itemName + " | Ergebnis: kein Verkauf.";
                 server.getPlayerList().broadcastSystemMessage(
                         Component.literal("Auktion beendet: " + auction.itemName
-                                + " | Startpreis: " + auction.startPrice + " | Ergebnis: kein Verkauf."), false);
+                                + " | Startpreis: " + auction.startPrice), false);
                 iterator.remove();
                 saveState();
             }
         }
     }
 
-    private record Auction(String itemName, int startPrice, long endAt) {}
+    private record Auction(String itemId, String itemName, int startPrice, long endAt) {}
 }
