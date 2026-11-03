@@ -179,6 +179,22 @@ public class AuctionScreen extends Screen {
         tickAuction();
     }
 
+    private void drawRoundedRect(GuiGraphicsExtractor graphics, int x, int y, int width, int height,
+                                 int color, int radius) {
+        int r = Math.max(1, Math.min(radius, Math.min(width, height) / 2));
+        for (int row = 0; row < height; row++) {
+            int inset = 0;
+            if (row < r) {
+                double dy = r - row - 0.5;
+                inset = Math.max(0, r - (int) Math.floor(Math.sqrt(r * r - dy * dy)));
+            } else if (row >= height - r) {
+                double dy = row - (height - r) + 0.5;
+                inset = Math.max(0, r - (int) Math.floor(Math.sqrt(r * r - dy * dy)));
+            }
+            graphics.fill(x + inset, y + row, x + width - inset, y + row + 1, color);
+        }
+    }
+
     private String fitText(String text, int maxWidth) {
         if (text == null || text.isEmpty()) return "";
         if (this.font.width(text) <= maxWidth) return text;
@@ -195,6 +211,7 @@ public class AuctionScreen extends Screen {
         itemPickerButton = Button.builder(getSelectedItemLabel(), button -> openItemPicker())
                 .bounds(left + 16, top + 102, 190, 20).build();
         addRenderableWidget(itemPickerButton);
+        updateItemPickerButton();
 
         priceField = new EditBox(this.font, left + 16, top + 180, 190, 20, Component.literal("Startpreis"));
         priceField.setMaxLength(10);
@@ -214,7 +231,16 @@ public class AuctionScreen extends Screen {
         updateEndButton();
     }
 
+    private void updateItemPickerButton() {
+        if (itemPickerButton != null) {
+            itemPickerButton.active = !hasActiveAuction();
+            itemPickerButton.setMessage(Component.literal(hasActiveAuction()
+                    ? "Item gesperrt (Auktion läuft)" : getSelectedItemLabel().getString()));
+        }
+    }
+
     private void updateEndButton() {
+        updateItemPickerButton();
         if (endAuctionButton != null) {
             endAuctionButton.visible = hasActiveAuction();
             endAuctionButton.active = hasActiveAuction();
@@ -228,10 +254,12 @@ public class AuctionScreen extends Screen {
     }
 
     private void openItemPicker() {
+        if (hasActiveAuction()) return;
         Minecraft.getInstance().setScreenAndShow(new ItemPickerScreen(this, selected -> {
             int index = selectableItems.indexOf(selected);
+            if (hasActiveAuction()) return;
             if (index >= 0) selectedItemIndex = index;
-            if (itemPickerButton != null) itemPickerButton.setMessage(getSelectedItemLabel());
+            updateItemPickerButton();
         }));
     }
 
@@ -281,8 +309,9 @@ public class AuctionScreen extends Screen {
         int right = left + 420;
         int bottom = top + 290;
 
-        graphics.fill(left, top, right, bottom, 0xF0141822);
-        graphics.fill(left, top, right, top + 30, 0xFF27364A);
+        drawRoundedRect(graphics, left, top, right - left, bottom - top, 0xF0141822, 9);
+        drawRoundedRect(graphics, left, top, right - left, 30, 0xFF27364A, 9);
+        graphics.fill(left, top + 20, right, top + 30, 0xFF27364A);
         graphics.fill(left + 1, top + 31, left + 210, bottom - 1, 0xFF1B2432);
         graphics.fill(left + 211, top + 31, right - 1, bottom - 1, 0xFF202B3A);
         graphics.text(this.font, "PERSONAL AUCTION", left + 14, top + 11, 0xFFFFFFFF, true);
@@ -295,8 +324,9 @@ public class AuctionScreen extends Screen {
             Item item = id == null ? null : BuiltInRegistries.ITEM.get(id)
                     .map(reference -> reference.value()).orElse(null);
             if (item != null && item != net.minecraft.world.item.Items.AIR) {
-                graphics.fill(left + 16, top + 58, left + 54, top + 96, 0xFF303E50);
-                graphics.item(item.getDefaultInstance(), left + 27, top + 69);
+                drawRoundedRect(graphics, left + 18, top + 61, 30, 30, 0xFF303E50, 6);
+                // Einheitlicher 16x16-Item-Slot, mittig in einer kompakten Kachel.
+                graphics.item(item.getDefaultInstance(), left + 25, top + 68);
             }
             graphics.text(this.font, fitText(activeItemName, 140), left + 62, top + 62, 0xFFFFFFFF, true);
             long seconds = Math.max(0, (auctionEndAt - System.currentTimeMillis()) / 1000);
