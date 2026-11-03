@@ -24,7 +24,8 @@ public class AuctionScreen extends Screen {
     private int selectedItemIndex = 0;
     private static String auctionStatus = "Auktionsstatus wird geladen...";
     private static boolean canCreate = false;
-    private static String activeAuctionItemId = "";\n    private static String paymentNotice = "";
+    private static String activeAuctionItemId = "";
+    private static String paymentNotice = "";
     private static AuctionScreen currentScreen;
     private final List<AbstractWidget> creatorWidgets = new ArrayList<>();
     private int statusRequestTicks = 0;
@@ -36,7 +37,11 @@ public class AuctionScreen extends Screen {
         selectableItems.removeIf(item -> item == net.minecraft.world.item.Items.AIR);
     }
 
-    public static void setPaymentNotice(String message) {\n        paymentNotice = message;\n    }\n\n    public static void setAuctionStatus(String message, boolean permission, String itemId) {
+    public static void setPaymentNotice(String message) {
+        paymentNotice = message;
+    }
+
+    public static void setAuctionStatus(String message, boolean permission, String itemId) {
         auctionStatus = message;
         canCreate = permission;
         activeAuctionItemId = itemId == null ? "" : itemId;
@@ -161,7 +166,10 @@ public class AuctionScreen extends Screen {
             graphics.text(this.font, "Startpreis", this.width / 2 - 100, this.height / 2 - 40, 0xFFAAAAAA, true);
             graphics.text(this.font, "Dauer (Minuten)", this.width / 2 - 100, this.height / 2 - 10, 0xFFAAAAAA, true);
         }
-        if (!paymentNotice.isEmpty()) {\n            graphics.text(this.font, paymentNotice, this.width / 2 - 120, this.height / 2 + 108, 0xFF55FF55, true);\n        }\n        if (!errorMessage.isEmpty()) {
+        if (!paymentNotice.isEmpty()) {
+            graphics.text(this.font, paymentNotice, this.width / 2 - 120, this.height / 2 + 108, 0xFF55FF55, true);
+        }
+        if (!errorMessage.isEmpty()) {
             graphics.text(this.font, errorMessage, this.width / 2 - 100, this.height / 2 + 88, 0xFFFF5555, true);
         }
     }
