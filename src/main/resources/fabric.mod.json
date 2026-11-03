@@ -3,12 +3,13 @@
   "id": "personalauction",
   "version": "${version}",
   "name": "PersonalAuction",
-  "description": "Ein persönliches Auktionssystem mit Scoreboard-Währung.",
+  "description": "Persönliche Anzeige-Auktionen mit GUI und automatischem Ende.",
   "authors": ["PersonalAuction"],
   "license": "MIT",
   "environment": "*",
   "entrypoints": {
-    "main": ["de.personalarauction.PersonalAuction"]
+    "main": ["de.personalarauction.PersonalAuction"],
+    "client": ["de.personalarauction.PersonalAuctionClient"]
   },
   "depends": {
     "fabricloader": ">=0.19.3",
