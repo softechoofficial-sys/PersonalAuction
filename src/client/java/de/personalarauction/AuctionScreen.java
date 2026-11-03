@@ -31,6 +31,7 @@ public class AuctionScreen extends Screen {
     private String errorMessage = "";
     private final List<Item> selectableItems = new ArrayList<>();
     private int selectedItemIndex = 0;
+    private boolean hasSelectedItem = false;
     private static String activeItemId = "";
     private static String activeItemName = "";
     private static int activeStartPrice;
@@ -69,7 +70,7 @@ public class AuctionScreen extends Screen {
 
     private static String getCurrentWinner() {
         List<Map.Entry<String, Long>> ranked = getRankedPayments();
-        return ranked.isEmpty() ? "Noch keine Zahlungen" :
+        return ranked.isEmpty() ? "..." :
                 ranked.get(0).getKey() + " – " + ranked.get(0).getValue() + " Cash";
     }
 
@@ -213,12 +214,12 @@ public class AuctionScreen extends Screen {
 
         priceField = new EditBox(this.font, left + 16, top + 180, 190, 20, Component.literal("Startpreis"));
         priceField.setMaxLength(10);
-        priceField.setHint(Component.literal("Startpreis in Cash"));
+        priceField.setHint(Component.empty());
         addRenderableWidget(priceField);
 
         durationField = new EditBox(this.font, left + 16, top + 217, 190, 20, Component.literal("Dauer"));
         durationField.setMaxLength(5);
-        durationField.setHint(Component.literal("Dauer in Minuten"));
+        durationField.setHint(Component.empty());
         addRenderableWidget(durationField);
 
         addRenderableWidget(Button.builder(Component.literal("Auktion starten"), button -> startAuction())
@@ -232,8 +233,7 @@ public class AuctionScreen extends Screen {
     private void updateItemPickerButton() {
         if (itemPickerButton != null) {
             itemPickerButton.active = !hasActiveAuction();
-            itemPickerButton.setMessage(Component.literal(hasActiveAuction()
-                    ? "Item gesperrt (Auktion läuft)" : getSelectedItemLabel().getString()));
+            itemPickerButton.setMessage(Component.literal("Item"));
         }
     }
 
@@ -246,9 +246,7 @@ public class AuctionScreen extends Screen {
     }
 
     private Component getSelectedItemLabel() {
-        if (selectableItems.isEmpty()) return Component.literal("Kein Item verfügbar");
-        return Component.literal(fitText("Item auswählen: " + selectableItems.get(selectedItemIndex)
-                .getDefaultInstance().getHoverName().getString(), 178));
+        return Component.literal("Item");
     }
 
     private void openItemPicker() {
@@ -256,7 +254,10 @@ public class AuctionScreen extends Screen {
         Minecraft.getInstance().setScreenAndShow(new ItemPickerScreen(this, selected -> {
             int index = selectableItems.indexOf(selected);
             if (hasActiveAuction()) return;
-            if (index >= 0) selectedItemIndex = index;
+            if (index >= 0) {
+                selectedItemIndex = index;
+                hasSelectedItem = true;
+            }
             updateItemPickerButton();
         }));
     }
@@ -269,7 +270,7 @@ public class AuctionScreen extends Screen {
         try {
             int price = Integer.parseInt(priceField.getValue());
             int duration = Integer.parseInt(durationField.getValue());
-            if (price < 1 || price > 1_000_000_000 || duration < 1 || duration > 10080 || selectableItems.isEmpty()) {
+            if (price < 1 || price > 1_000_000_000 || duration < 1 || duration > 10080 || selectableItems.isEmpty() || !hasSelectedItem) {
                 throw new NumberFormatException();
             }
             Item selected = selectableItems.get(selectedItemIndex);
@@ -307,9 +308,8 @@ public class AuctionScreen extends Screen {
         int right = left + 420;
         int bottom = top + 290;
 
-        drawRoundedRect(graphics, left, top, right - left, bottom - top, 0xF0141822, 9);
-        drawRoundedRect(graphics, left, top, right - left, 30, 0xFF27364A, 9);
-        graphics.fill(left, top + 20, right, top + 30, 0xFF27364A);
+        graphics.fill(left, top, right, bottom, 0xF0141822);
+        graphics.fill(left, top, right, top + 30, 0xFF27364A);
         graphics.fill(left + 1, top + 31, left + 210, bottom - 1, 0xFF1B2432);
         graphics.fill(left + 211, top + 31, right - 1, bottom - 1, 0xFF202B3A);
         graphics.text(this.font, "PERSONAL AUCTION", left + 14, top + 11, 0xFFFFFFFF, true);
@@ -322,7 +322,7 @@ public class AuctionScreen extends Screen {
             Item item = id == null ? null : BuiltInRegistries.ITEM.get(id)
                     .map(reference -> reference.value()).orElse(null);
             if (item != null && item != net.minecraft.world.item.Items.AIR) {
-                drawRoundedRect(graphics, left + 18, top + 61, 30, 30, 0xFF303E50, 6);
+                graphics.fill(left + 18, top + 61, left + 48, top + 91, 0xFF303E50);
                 // Einheitlicher 16x16-Item-Slot, mittig in einer kompakten Kachel.
                 graphics.item(item.getDefaultInstance(), left + 25, top + 68);
             }
@@ -372,7 +372,7 @@ public class AuctionScreen extends Screen {
                     0xFFFFD479, true);
         }
         if (ranked.isEmpty()) {
-            graphics.text(this.font, "Noch keine Zahlungen erkannt.", left + 224, top + 126, 0xFF8795A7, true);
+            graphics.text(this.font, "...", left + 224, top + 126, 0xFF8795A7, true);
         } else if (ranked.size() > visibleRows) {
             graphics.text(this.font, "Mausrad: Liste scrollen (" + ranked.size() + " Spieler)",
                     left + 224, bottom - 18, 0xFF8795A7, true);
