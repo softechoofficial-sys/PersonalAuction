@@ -10,6 +10,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,6 +37,8 @@ public class AuctionScreen extends Screen {
     private final List<Item> selectableItems = new ArrayList<>();
     private int selectedItemIndex = 0;
     private boolean hasSelectedItem = false;
+    private ItemStack selectedItemStack;
+    private static ItemStack activeItemStack;
     private static String activeItemId = "";
     private static String activeItemName = "";
     private static long auctionEndAt;
@@ -129,6 +132,7 @@ public class AuctionScreen extends Screen {
     private static void clearActiveAuction() {
         activeItemId = "";
         activeItemName = "";
+        activeItemStack = null;
         auctionEndAt = 0;
         activeStartingPrice = 0;
         activeStartingPriceDisplay = "";
@@ -169,8 +173,9 @@ public class AuctionScreen extends Screen {
                         lastResult = "Auktion beendet: " + activeItemName + " | Kein Verkauf (keine Gebote).";
                     }
                     saveState();
-                } else if (activeItemName.isBlank()) {
-                    activeItemName = item.getDefaultInstance().getHoverName().getString();
+                } else {
+                    activeItemStack = new ItemStack(item);
+                    if (activeItemName.isBlank()) activeItemName = item.getDefaultInstance().getHoverName().getString();
                 }
             }
         } catch (IOException | NumberFormatException exception) {
@@ -221,10 +226,10 @@ public class AuctionScreen extends Screen {
         return end == 0 ? suffix : text.substring(0, end) + suffix;
     }
 
-    private void drawItemSlot(GuiGraphicsExtractor graphics, Item item, int x, int y) {
+    private void drawItemSlot(GuiGraphicsExtractor graphics, ItemStack item, int x, int y) {
         graphics.fill(x - 1, y - 1, x + 31, y + 31, 0xFF8FC9EE);
         graphics.fill(x, y, x + 30, y + 30, 0xFF263746);
-        if (item == null || item == net.minecraft.world.item.Items.AIR) {
+        if (item == null || item.isEmpty()) {
             float scale = 2.3f;
             float textWidth = this.font.width("?") * scale;
             float textHeight = this.font.lineHeight * scale;
@@ -240,7 +245,7 @@ public class AuctionScreen extends Screen {
         graphics.pose().pushMatrix();
         graphics.pose().translate(x + 3, y + 3);
         graphics.pose().scale(1.5f, 1.5f);
-        graphics.item(item.getDefaultInstance(), 0, 0);
+        graphics.item(item, 0, 0);
         graphics.pose().popMatrix();
     }
 
@@ -293,12 +298,10 @@ public class AuctionScreen extends Screen {
     private void openItemPicker() {
         if (hasActiveAuction()) return;
         Minecraft.getInstance().setScreenAndShow(new ItemPickerScreen(this, selected -> {
-            int index = selectableItems.indexOf(selected);
             if (hasActiveAuction()) return;
-            if (index >= 0) {
-                selectedItemIndex = index;
-                hasSelectedItem = true;
-            }
+            selectedItemStack = selected.copy();
+            selectedItemIndex = selectableItems.indexOf(selected.getItem());
+            hasSelectedItem = true;
             updateItemPickerButton();
         }));
     }
@@ -314,9 +317,11 @@ public class AuctionScreen extends Screen {
             if (duration < 1 || duration > 10080 || minPrice < 0 || selectableItems.isEmpty() || !hasSelectedItem) {
                 throw new NumberFormatException();
             }
-            Item selected = selectableItems.get(selectedItemIndex);
-            activeItemId = BuiltInRegistries.ITEM.getKey(selected).toString();
-            activeItemName = selected.getDefaultInstance().getHoverName().getString();
+            ItemStack selected = selectedItemStack;
+            if (selected == null || selected.isEmpty()) throw new NumberFormatException();
+            activeItemStack = selected.copy();
+            activeItemId = BuiltInRegistries.ITEM.getKey(selected.getItem()).toString();
+            activeItemName = selected.getHoverName().getString();
             auctionEndAt = System.currentTimeMillis() + duration * 60_000L;
             activeStartingPrice = minPrice;
             activeStartingPriceDisplay = minPriceField.getValue().trim();
@@ -367,9 +372,7 @@ public class AuctionScreen extends Screen {
         graphics.text(this.font, "AUKTION", auctionTitleX, top + 43, 0xFFAEDFFF, true);
         if (hasActiveAuction()) {
             Identifier id = Identifier.tryParse(activeItemId);
-            Item item = id == null ? null : BuiltInRegistries.ITEM.get(id)
-                    .map(reference -> reference.value()).orElse(null);
-            drawItemSlot(graphics, item, left + 18, top + 61);
+            drawItemSlot(graphics, activeItemStack, left + 18, top + 61);
             graphics.text(this.font, fitText(activeItemName, 140), left + 62, top + 62, 0xFFFFFFFF, true);
             long seconds = Math.max(0, (auctionEndAt - System.currentTimeMillis()) / 1000);
             graphics.text(this.font, "Restzeit: " + (seconds / 60) + "m " + (seconds % 60) + "s",
@@ -377,13 +380,11 @@ public class AuctionScreen extends Screen {
             graphics.text(this.font, "Startpreis: $" + activeStartingPriceDisplay,
                     left + 62, top + 90, 0xFF65E6A5, true);
         } else {
-            Item selectedItem = hasSelectedItem && !selectableItems.isEmpty()
-                    ? selectableItems.get(Math.max(0, Math.min(selectedItemIndex, selectableItems.size() - 1)))
-                    : null;
+            ItemStack selectedItem = hasSelectedItem ? selectedItemStack : null;
             drawItemSlot(graphics, selectedItem, left + 18, top + 61);
-            if (selectedItem != null) {
+            if (selectedItem != null && !selectedItem.isEmpty()) {
                 graphics.text(this.font, "Ausgewähltes Item", left + 62, top + 62, 0xFF91A9C5, true);
-                graphics.text(this.font, fitText(selectedItem.getDefaultInstance().getHoverName().getString(), 140),
+                graphics.text(this.font, fitText(selectedItem.getHoverName().getString(), 140),
                         left + 62, top + 78, 0xFFFFFFFF, true);
             }
             if (!lastResult.isBlank()) {
