@@ -181,30 +181,31 @@ public class AuctionScreen extends Screen {
 
     @Override
     protected void init() {
-        int center = this.width / 2;
+        int left = this.width / 2 - 210;
+        int top = this.height / 2 - 125;
         itemPickerButton = Button.builder(getSelectedItemLabel(), button -> openItemPicker())
-                .bounds(center - 100, this.height / 2 - 82, 200, 20).build();
+                .bounds(left + 16, top + 102, 190, 20).build();
         addRenderableWidget(itemPickerButton);
 
-        priceField = new EditBox(this.font, center - 100, this.height / 2 - 28, 200, 20, Component.literal("Startpreis"));
+        priceField = new EditBox(this.font, left + 16, top + 151, 190, 20, Component.literal("Startpreis"));
         priceField.setMaxLength(10);
         priceField.setValue("100");
         priceField.setHint(Component.literal("Startpreis in Cash"));
         addRenderableWidget(priceField);
 
-        durationField = new EditBox(this.font, center - 100, this.height / 2 + 2, 200, 20, Component.literal("Dauer"));
+        durationField = new EditBox(this.font, left + 16, top + 190, 190, 20, Component.literal("Dauer"));
         durationField.setMaxLength(5);
         durationField.setValue("5");
         durationField.setHint(Component.literal("Dauer in Minuten"));
         addRenderableWidget(durationField);
 
         addRenderableWidget(Button.builder(Component.literal("Auktion starten"), button -> startAuction())
-                .bounds(center - 100, this.height / 2 + 34, 200, 20).build());
+                .bounds(left + 16, top + 220, 92, 20).build());
         endAuctionButton = Button.builder(Component.literal("Auktion beenden"), button -> endAuction())
-                .bounds(center - 100, this.height / 2 + 60, 200, 20).build();
+                .bounds(left + 114, top + 220, 92, 20).build();
         addRenderableWidget(endAuctionButton);
         addRenderableWidget(Button.builder(Component.literal("Schließen"), button -> onClose())
-                .bounds(center - 100, this.height / 2 + 86, 200, 20).build());
+                .bounds(left + 16, top + 245, 190, 20).build());
         updateEndButton();
     }
 
@@ -271,30 +272,90 @@ public class AuctionScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
+        int left = this.width / 2 - 210;
+        int top = this.height / 2 - 125;
+        int right = left + 420;
+        int bottom = top + 270;
+
+        graphics.fill(left, top, right, bottom, 0xF0141822);
+        graphics.fill(left, top, right, top + 30, 0xFF27364A);
+        graphics.fill(left + 1, top + 31, left + 210, bottom - 1, 0xFF1B2432);
+        graphics.fill(left + 211, top + 31, right - 1, bottom - 1, 0xFF202B3A);
+        graphics.text(this.font, "PERSONAL AUCTION", left + 14, top + 11, 0xFFFFFFFF, true);
+        graphics.text(this.font, hasActiveAuction() ? "LIVE" : "BEREIT",
+                right - 48, top + 11, hasActiveAuction() ? 0xFF65E6A5 : 0xFFB8C3D1, true);
+
+        graphics.text(this.font, "AUKTION", left + 16, top + 43, 0xFF91A9C5, true);
         if (hasActiveAuction()) {
             Identifier id = Identifier.tryParse(activeItemId);
             Item item = id == null ? null : BuiltInRegistries.ITEM.get(id)
                     .map(reference -> reference.value()).orElse(null);
             if (item != null && item != net.minecraft.world.item.Items.AIR) {
-                graphics.item(item.getDefaultInstance(), this.width / 2 - 120, this.height / 2 - 110);
+                graphics.fill(left + 16, top + 58, left + 54, top + 96, 0xFF303E50);
+                graphics.item(item.getDefaultInstance(), left + 27, top + 69);
             }
+            graphics.text(this.font, activeItemName, left + 62, top + 62, 0xFFFFFFFF, true);
+            long seconds = Math.max(0, (auctionEndAt - System.currentTimeMillis()) / 1000);
+            graphics.text(this.font, "Restzeit: " + (seconds / 60) + "m " + (seconds % 60) + "s",
+                    left + 62, top + 78, 0xFFB8C3D1, true);
+            graphics.text(this.font, "Startpreis: " + activeStartPrice + " Cash",
+                    left + 16, top + 91, 0xFFFFD479, true);
+        } else {
+            graphics.text(this.font, lastResult.isBlank() ? "Keine aktive Auktion" : lastResult,
+                    left + 16, top + 66, 0xFFCED7E2, true);
         }
-        graphics.text(this.font, getStatus(), this.width / 2 - 120, this.height / 2 - 105, 0xFFFFFFFF, true);
-        if (!selectableItems.isEmpty()) {
-            ItemStack preview = selectableItems.get(selectedItemIndex).getDefaultInstance();
-            graphics.item(preview, this.width / 2 - 8, this.height / 2 - 82);
-            graphics.text(this.font, "Ausgewähltes Auktionsitem", this.width / 2 - 100,
-                    this.height / 2 - 96, 0xFFAAAAAA, true);
+
+        graphics.fill(left + 14, top + 128, left + 206, top + 130, 0xFF3C5068);
+        graphics.text(this.font, "AKTUELLER GEWINNER", left + 16, top + 137, 0xFF91A9C5, true);
+        graphics.text(this.font, getCurrentWinner(), left + 16, top + 155, 0xFF65E6A5, true);
+        graphics.text(this.font, "Item bleibt im Inventar", left + 16, top + 178, 0xFF8795A7, true);
+        graphics.text(this.font, "Startpreis (Cash)", left + 16, top + 180, 0xFFB8C3D1, true);
+        graphics.text(this.font, "Dauer (Min.)", left + 16, top + 219, 0xFFB8C3D1, true);
+
+        graphics.text(this.font, "ZAHLUNGEN & TEILNEHMER", left + 224, top + 43, 0xFF91A9C5, true);
+        graphics.text(this.font, "Spieler", left + 224, top + 64, 0xFFB8C3D1, true);
+        graphics.text(this.font, "Gesamt", right - 68, top + 64, 0xFFB8C3D1, true);
+        graphics.fill(left + 222, top + 78, right - 14, top + 79, 0xFF3C5068);
+
+        List<Map.Entry<String, Long>> ranked = getRankedPayments();
+        int visibleRows = 9;
+        int maxScroll = Math.max(0, ranked.size() - visibleRows);
+        paymentScroll = Math.max(0, Math.min(paymentScroll, maxScroll));
+        for (int i = paymentScroll; i < Math.min(ranked.size(), paymentScroll + visibleRows); i++) {
+            Map.Entry<String, Long> entry = ranked.get(i);
+            int rowY = top + 88 + (i - paymentScroll) * 16;
+            if (i == 0) graphics.fill(left + 220, rowY - 3, right - 14, rowY + 12, 0xFF29483F);
+            graphics.text(this.font, (i + 1) + ". " + entry.getKey(), left + 224, rowY,
+                    i == 0 ? 0xFF65E6A5 : 0xFFE0E6ED, true);
+            String total = entry.getValue() + " Cash";
+            graphics.text(this.font, total, right - 16 - this.font.width(total), rowY,
+                    0xFFFFD479, true);
         }
-        graphics.text(this.font, "Startpreis (Cash)", this.width / 2 - 100, this.height / 2 - 40, 0xFFAAAAAA, true);
-        graphics.text(this.font, "Dauer (Minuten)", this.width / 2 - 100, this.height / 2 - 10, 0xFFAAAAAA, true);
+        if (ranked.isEmpty()) {
+            graphics.text(this.font, "Noch keine Zahlungen erkannt.", left + 224, top + 91, 0xFF8795A7, true);
+        } else if (ranked.size() > visibleRows) {
+            graphics.text(this.font, "Mausrad: Liste scrollen (" + ranked.size() + " Spieler)",
+                    left + 224, bottom - 18, 0xFF8795A7, true);
+        }
         if (!paymentNotice.isEmpty()) {
-            graphics.text(this.font, paymentNotice, this.width / 2 - 120, this.height / 2 + 108, 0xFF55FF55, true);
+            graphics.text(this.font, paymentNotice, left + 224, bottom - 18, 0xFF65E6A5, true);
         }
         if (!errorMessage.isEmpty()) {
-            graphics.text(this.font, errorMessage, this.width / 2 - 120, this.height / 2 + 130, 0xFFFFAA55, true);
+            graphics.text(this.font, errorMessage, left + 16, bottom - 16, 0xFFFFB86B, true);
         }
         updateEndButton();
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        int left = this.width / 2 - 210;
+        int top = this.height / 2 - 125;
+        if (mouseX >= left + 215 && mouseX <= left + 415 && mouseY >= top + 80 && mouseY <= top + 245) {
+            int maxScroll = Math.max(0, getRankedPayments().size() - 9);
+            paymentScroll = Math.max(0, Math.min(maxScroll, paymentScroll - (int) Math.signum(verticalAmount)));
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
     }
 
     @Override
