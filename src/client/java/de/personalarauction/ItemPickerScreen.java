@@ -126,10 +126,13 @@ public class ItemPickerScreen extends Screen {
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         if (super.mouseClicked(event, doubleClick)) return true;
-        if (event.button().button() != 0) return false;
+        if (event.button() != 0) return false;
 
         double mouseX = event.x();
         double mouseY = event.y();
+        if (mouseX < gridStartX() || mouseX >= gridStartX() + COLUMNS * CELL_SIZE
+                || mouseY < gridStartY() || mouseY >= gridStartY() + ROWS * CELL_SIZE) return false;
+
         int column = (int) (mouseX - gridStartX()) / CELL_SIZE;
         int row = (int) (mouseY - gridStartY()) / CELL_SIZE;
         if (column < 0 || column >= COLUMNS || row < 0 || row >= ROWS) return false;
