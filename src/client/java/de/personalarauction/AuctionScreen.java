@@ -360,9 +360,9 @@ public class AuctionScreen extends Screen {
         graphics.text(this.font, hasActiveAuction() ? "LIVE" : "BEREIT",
                 right - 48, top + 11, hasActiveAuction() ? 0xFF65E6A5 : 0xFFB8C3D1, true);
 
-        graphics.fill(left + 12, top + 39, left + 88, top + 58, 0xFF5BA9E6);
-        graphics.fill(left + 13, top + 40, left + 87, top + 57, 0xFF263F56);
-        graphics.text(this.font, "AUKTION", left + 19, top + 44, 0xFFAEDFFF, true);
+        graphics.fill(left + 15, top + 40, left + 81, top + 56, 0xFF5BA9E6);
+        graphics.fill(left + 16, top + 41, left + 80, top + 55, 0xFF263F56);
+        graphics.text(this.font, "AUKTION", left + 20, top + 43, 0xFFAEDFFF, true);
         if (hasActiveAuction()) {
             Identifier id = Identifier.tryParse(activeItemId);
             Item item = id == null ? null : BuiltInRegistries.ITEM.get(id)
@@ -393,9 +393,9 @@ public class AuctionScreen extends Screen {
         graphics.text(this.font, "Startpreis ($)", left + 16, top + 141, 0xFFB8C3D1, true);
         graphics.text(this.font, "Dauer (Min)", left + 16, top + 180, 0xFFB8C3D1, true);
 
-        graphics.fill(left + 220, top + 39, left + 310, top + 58, 0xFF5BA9E6);
-        graphics.fill(left + 221, top + 40, left + 309, top + 57, 0xFF263F56);
-        graphics.text(this.font, "ZAHLUNGEN", left + 227, top + 44, 0xFFAEDFFF, true);
+        graphics.fill(left + 223, top + 40, left + 307, top + 56, 0xFF5BA9E6);
+        graphics.fill(left + 224, top + 41, left + 306, top + 55, 0xFF263F56);
+        graphics.text(this.font, "ZAHLUNGEN", left + 227, top + 43, 0xFFAEDFFF, true);
         graphics.text(this.font, "GEWINNER", left + 224, top + 64, 0xFF91A9C5, true);
         graphics.text(this.font, fitText(getCurrentWinner(), 180), left + 224, top + 78, 0xFF65E6A5, true);
         graphics.text(this.font, "Spieler", left + 224, top + 101, 0xFFB8C3D1, true);
