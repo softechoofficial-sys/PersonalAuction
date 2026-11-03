@@ -5,12 +5,13 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Component;\nimport net.minecraft.world.item.ItemStack;
 
 public class AuctionScreen extends Screen {
     private EditBox priceField;
     private EditBox durationField;
     private String errorMessage = "";
+    private int selectedSlot = 0;
 
     public AuctionScreen() {
         super(Component.literal("PersonalAuction"));
@@ -19,6 +20,11 @@ public class AuctionScreen extends Screen {
     @Override
     protected void init() {
         int center = this.width / 2;
+        addRenderableWidget(Button.builder(Component.literal("<"), button -> changeSelectedSlot(-1))
+                .bounds(center - 100, this.height / 2 - 82, 20, 20).build());
+        addRenderableWidget(Button.builder(Component.literal(">"), button -> changeSelectedSlot(1))
+                .bounds(center + 80, this.height / 2 - 82, 20, 20).build());
+
         priceField = new EditBox(this.font, center - 100, this.height / 2 - 28, 200, 20,
                 Component.literal("Startpreis"));
         priceField.setMaxLength(10);
@@ -46,7 +52,7 @@ public class AuctionScreen extends Screen {
             if (price < 1 || duration < 1 || duration > 10080) {
                 throw new NumberFormatException();
             }
-            ClientPlayNetworking.send(new AuctionCreatePayload(price, duration));
+            ClientPlayNetworking.send(new AuctionCreatePayload(selectedSlot, price, duration));
             onClose();
         } catch (NumberFormatException exception) {
             errorMessage = "Ungültiger Startpreis oder ungültige Dauer (1 bis 10080 Minuten).";
@@ -56,8 +62,11 @@ public class AuctionScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
-        graphics.text(this.font, "Halte das Item in deiner Haupthand.", this.width / 2 - 100,
-                this.height / 2 - 55, 0xFFFFFFFF, true);
+        ItemStack selectedItem = this.minecraft.player.getInventory().getItem(selectedSlot);
+        String itemName = selectedItem.isEmpty() ? "Leer" : selectedItem.getHoverName().getString()
+                + " x" + selectedItem.getCount();
+        graphics.text(this.font, "Item (Slot " + selectedSlot + "): " + itemName, this.width / 2 - 75,
+                this.height / 2 - 76, 0xFFFFFFFF, true);
         graphics.text(this.font, "Startpreis", this.width / 2 - 100, this.height / 2 - 40,
                 0xFFAAAAAA, true);
         graphics.text(this.font, "Dauer (Minuten)", this.width / 2 - 100, this.height / 2 - 10,
