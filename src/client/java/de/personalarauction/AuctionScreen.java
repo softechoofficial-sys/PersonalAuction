@@ -24,7 +24,6 @@ import java.util.Comparator;
 import java.util.Properties;
 
 public class AuctionScreen extends Screen {
-    private EditBox priceField;
     private EditBox durationField;
     private Button endAuctionButton;
     private Button itemPickerButton;
@@ -34,7 +33,6 @@ public class AuctionScreen extends Screen {
     private boolean hasSelectedItem = false;
     private static String activeItemId = "";
     private static String activeItemName = "";
-    private static int activeStartPrice;
     private static long auctionEndAt;
     private static String lastResult = "";
     private static String paymentNotice = "";
@@ -55,7 +53,7 @@ public class AuctionScreen extends Screen {
             long amount = Long.parseLong(amountText.replaceAll("[^0-9]", ""));
             if (amount <= 0) return;
             paymentTotals.merge(sender, amount, Long::sum);
-            paymentNotice = "Zahlung von " + sender + " erkannt: +" + amount + " Cash";
+            paymentNotice = "";
             saveState();
         } catch (NumberFormatException ignored) {
             paymentNotice = "Zahlung erkannt, Betrag konnte nicht gelesen werden.";
@@ -91,8 +89,7 @@ public class AuctionScreen extends Screen {
     private static String getStatus() {
         if (!hasActiveAuction()) return lastResult.isBlank() ? "Keine aktive Auktion." : lastResult;
         long seconds = Math.max(0, (auctionEndAt - System.currentTimeMillis()) / 1000);
-        return "Aktuell: " + activeItemName + " | Startpreis: " + activeStartPrice
-                + " Cash | Restzeit: " + (seconds / 60) + "m " + (seconds % 60) + "s";
+        return "Aktuell: " + activeItemName + " | Restzeit: " + (seconds / 60) + "m " + (seconds % 60) + "s";
     }
 
     private static void clearActiveAuction() {
@@ -123,14 +120,13 @@ public class AuctionScreen extends Screen {
             }
             activeItemId = properties.getProperty("auction.item", "");
             activeItemName = properties.getProperty("auction.itemName", "");
-            activeStartPrice = Integer.parseInt(properties.getProperty("auction.price", "0"));
             auctionEndAt = Long.parseLong(properties.getProperty("auction.endAt", "0"));
             if (!activeItemId.isBlank()) {
                 Identifier id = Identifier.tryParse(activeItemId);
                 Item item = id == null ? null : BuiltInRegistries.ITEM.get(id)
                         .map(reference -> reference.value()).orElse(null);
                 if (item == null || item == net.minecraft.world.item.Items.AIR
-                        || activeStartPrice < 1 || auctionEndAt <= System.currentTimeMillis()) {
+                        || auctionEndAt <= System.currentTimeMillis()) {
                     clearActiveAuction();
                     if (auctionEndAt > 0 && auctionEndAt <= System.currentTimeMillis()) {
                         lastResult = "Auktion beendet: " + activeItemName + " | Kein Verkauf (keine Gebote).";
@@ -151,7 +147,6 @@ public class AuctionScreen extends Screen {
         if (!activeItemId.isBlank()) {
             properties.setProperty("auction.item", activeItemId);
             properties.setProperty("auction.itemName", activeItemName);
-            properties.setProperty("auction.price", Integer.toString(activeStartPrice));
             properties.setProperty("auction.endAt", Long.toString(auctionEndAt));
         }
         properties.setProperty("auction.paymentCount", Integer.toString(paymentTotals.size()));
@@ -209,12 +204,7 @@ public class AuctionScreen extends Screen {
         addRenderableWidget(itemPickerButton);
         updateItemPickerButton();
 
-        priceField = new EditBox(this.font, left + 16, top + 180, 190, 20, Component.literal("Startpreis"));
-        priceField.setMaxLength(10);
-        priceField.setHint(Component.empty());
-        addRenderableWidget(priceField);
-
-        durationField = new EditBox(this.font, left + 16, top + 217, 190, 20, Component.literal("Dauer"));
+        durationField = new EditBox(this.font, left + 16, top + 180, 190, 20, Component.literal("Dauer"));
         durationField.setMaxLength(5);
         durationField.setHint(Component.empty());
         addRenderableWidget(durationField);
@@ -265,25 +255,23 @@ public class AuctionScreen extends Screen {
             return;
         }
         try {
-            int price = Integer.parseInt(priceField.getValue());
             int duration = Integer.parseInt(durationField.getValue());
-            if (price < 1 || price > 1_000_000_000 || duration < 1 || duration > 10080 || selectableItems.isEmpty() || !hasSelectedItem) {
+            if (duration < 1 || duration > 10080 || selectableItems.isEmpty() || !hasSelectedItem) {
                 throw new NumberFormatException();
             }
             Item selected = selectableItems.get(selectedItemIndex);
             activeItemId = BuiltInRegistries.ITEM.getKey(selected).toString();
             activeItemName = selected.getDefaultInstance().getHoverName().getString();
-            activeStartPrice = price;
             auctionEndAt = System.currentTimeMillis() + duration * 60_000L;
             lastResult = "";
             paymentTotals.clear();
             paymentScroll = 0;
             paymentNotice = "";
-            errorMessage = "Auktion lokal gestartet.";
+            errorMessage = "";
             saveState();
             updateEndButton();
         } catch (NumberFormatException exception) {
-            errorMessage = "Ungültiger Startpreis, Dauer oder Item-Auswahl.";
+            errorMessage = "Ungültige Dauer oder Item-Auswahl.";
         }
     }
 
@@ -294,7 +282,7 @@ public class AuctionScreen extends Screen {
                 : "Auktion vorzeitig beendet: " + activeItemName + " | Gewinner: " + getCurrentWinner();
         clearActiveAuction();
         saveState();
-        errorMessage = "Auktion lokal beendet.";
+        errorMessage = "";
         updateEndButton();
     }
 
@@ -325,8 +313,6 @@ public class AuctionScreen extends Screen {
             long seconds = Math.max(0, (auctionEndAt - System.currentTimeMillis()) / 1000);
             graphics.text(this.font, "Restzeit: " + (seconds / 60) + "m " + (seconds % 60) + "s",
                     left + 62, top + 78, 0xFFB8C3D1, true);
-            graphics.text(this.font, "Startpreis: " + activeStartPrice + " Cash",
-                    left + 16, top + 91, 0xFFFFD479, true);
         } else {
             Item selectedItem = hasSelectedItem && !selectableItems.isEmpty()
                     ? selectableItems.get(Math.max(0, Math.min(selectedItemIndex, selectableItems.size() - 1)))
@@ -343,8 +329,7 @@ public class AuctionScreen extends Screen {
         }
 
         graphics.fill(left + 14, top + 128, left + 206, top + 130, 0xFF58758F);
-        graphics.text(this.font, "Startpreis (Cash)", left + 16, top + 168, 0xFFB8C3D1, true);
-        graphics.text(this.font, "Dauer (Min.)", left + 16, top + 205, 0xFFB8C3D1, true);
+        graphics.text(this.font, "Dauer (Min.)", left + 16, top + 168, 0xFFB8C3D1, true);
 
         graphics.text(this.font, "ZAHLUNGEN", left + 224, top + 43, 0xFF91A9C5, true);
         graphics.text(this.font, "GEWINNER", left + 224, top + 64, 0xFF91A9C5, true);
@@ -372,9 +357,6 @@ public class AuctionScreen extends Screen {
         } else if (ranked.size() > visibleRows) {
             graphics.text(this.font, "Mausrad: Liste scrollen (" + ranked.size() + " Spieler)",
                     left + 224, bottom - 18, 0xFF8795A7, true);
-        }
-        if (!paymentNotice.isEmpty()) {
-            graphics.text(this.font, fitText(paymentNotice, 180), left + 224, top + 252, 0xFF65E6A5, true);
         }
         if (!errorMessage.isEmpty()) {
             graphics.text(this.font, fitText(errorMessage, 180), left + 16, bottom - 16, 0xFFFFB86B, true);
