@@ -179,6 +179,15 @@ public class AuctionScreen extends Screen {
         tickAuction();
     }
 
+    private String fitText(String text, int maxWidth) {
+        if (text == null || text.isEmpty()) return "";
+        if (this.font.width(text) <= maxWidth) return text;
+        String suffix = "...";
+        int end = text.length();
+        while (end > 0 && this.font.width(text.substring(0, end) + suffix) > maxWidth) end--;
+        return end == 0 ? suffix : text.substring(0, end) + suffix;
+    }
+
     @Override
     protected void init() {
         int left = this.width / 2 - 210;
@@ -289,20 +298,20 @@ public class AuctionScreen extends Screen {
                 graphics.fill(left + 16, top + 58, left + 54, top + 96, 0xFF303E50);
                 graphics.item(item.getDefaultInstance(), left + 27, top + 69);
             }
-            graphics.text(this.font, activeItemName, left + 62, top + 62, 0xFFFFFFFF, true);
+            graphics.text(this.font, fitText(activeItemName, 140), left + 62, top + 62, 0xFFFFFFFF, true);
             long seconds = Math.max(0, (auctionEndAt - System.currentTimeMillis()) / 1000);
             graphics.text(this.font, "Restzeit: " + (seconds / 60) + "m " + (seconds % 60) + "s",
                     left + 62, top + 78, 0xFFB8C3D1, true);
             graphics.text(this.font, "Startpreis: " + activeStartPrice + " Cash",
                     left + 16, top + 91, 0xFFFFD479, true);
         } else {
-            graphics.text(this.font, lastResult.isBlank() ? "Keine aktive Auktion" : lastResult,
+            graphics.text(this.font, fitText(lastResult.isBlank() ? "Keine aktive Auktion" : lastResult, 180),
                     left + 16, top + 66, 0xFFCED7E2, true);
         }
 
         graphics.fill(left + 14, top + 128, left + 206, top + 130, 0xFF3C5068);
         graphics.text(this.font, "AKTUELLER GEWINNER", left + 16, top + 126, 0xFF91A9C5, true);
-        graphics.text(this.font, getCurrentWinner(), left + 16, top + 143, 0xFF65E6A5, true);
+        graphics.text(this.font, fitText(getCurrentWinner(), 180), left + 16, top + 143, 0xFF65E6A5, true);
         graphics.text(this.font, "Item bleibt im Inventar", left + 16, top + 159, 0xFF8795A7, true);
         graphics.text(this.font, "Startpreis (Cash)", left + 16, top + 166, 0xFFB8C3D1, true);
         graphics.text(this.font, "Dauer (Min.)", left + 16, top + 201, 0xFFB8C3D1, true);
@@ -320,9 +329,9 @@ public class AuctionScreen extends Screen {
             Map.Entry<String, Long> entry = ranked.get(i);
             int rowY = top + 88 + (i - paymentScroll) * 16;
             if (i == 0) graphics.fill(left + 220, rowY - 3, right - 14, rowY + 12, 0xFF29483F);
-            graphics.text(this.font, (i + 1) + ". " + entry.getKey(), left + 224, rowY,
+            graphics.text(this.font, fitText((i + 1) + ". " + entry.getKey(), 112), left + 224, rowY,
                     i == 0 ? 0xFF65E6A5 : 0xFFE0E6ED, true);
-            String total = entry.getValue() + " Cash";
+            String total = fitText(entry.getValue() + " Cash", 66);
             graphics.text(this.font, total, right - 16 - this.font.width(total), rowY,
                     0xFFFFD479, true);
         }
@@ -333,10 +342,10 @@ public class AuctionScreen extends Screen {
                     left + 224, bottom - 18, 0xFF8795A7, true);
         }
         if (!paymentNotice.isEmpty()) {
-            graphics.text(this.font, paymentNotice, left + 224, top + 238, 0xFF65E6A5, true);
+            graphics.text(this.font, fitText(paymentNotice, 180), left + 224, top + 238, 0xFF65E6A5, true);
         }
         if (!errorMessage.isEmpty()) {
-            graphics.text(this.font, errorMessage, left + 16, bottom - 16, 0xFFFFB86B, true);
+            graphics.text(this.font, fitText(errorMessage, 180), left + 16, bottom - 16, 0xFFFFB86B, true);
         }
         updateEndButton();
         // Widgets zuletzt zeichnen, damit Buttons und Eingabefelder sichtbar und anklickbar bleiben.
