@@ -188,7 +188,8 @@ public class AuctionScreen extends Screen {
     }
 
     private void drawItemSlot(GuiGraphicsExtractor graphics, Item item, int x, int y) {
-        graphics.fill(x, y, x + 30, y + 30, 0xFF303E50);
+        graphics.fill(x - 1, y - 1, x + 31, y + 31, 0xFF8FC9EE);
+        graphics.fill(x, y, x + 30, y + 30, 0xFF263746);
         if (item == null || item == net.minecraft.world.item.Items.AIR) return;
 
         // Draw the 16x16 Minecraft item sprite at 1.5x (24x24), centered in the 30x30 slot.
@@ -304,15 +305,17 @@ public class AuctionScreen extends Screen {
         int right = left + 420;
         int bottom = top + 290;
 
-        graphics.fill(left, top, right, bottom, 0xF0141822);
-        graphics.fill(left, top, right, top + 30, 0xFF27364A);
-        graphics.fill(left + 1, top + 31, left + 210, bottom - 1, 0xFF1B2432);
-        graphics.fill(left + 211, top + 31, right - 1, bottom - 1, 0xFF202B3A);
+        graphics.fill(left - 1, top - 1, right + 1, bottom + 1, 0xFF8FC9EE);
+        graphics.fill(left, top, right, bottom, 0xF016202B);
+        graphics.fill(left, top, right, top + 30, 0xFF304B63);
+        graphics.fill(left, top + 29, right, top + 30, 0xFF8FC9EE);
+        graphics.fill(left + 1, top + 31, left + 210, bottom - 1, 0xFF1B2936);
+        graphics.fill(left + 211, top + 31, right - 1, bottom - 1, 0xFF202F3D);
         graphics.text(this.font, "PERSONAL AUCTION", left + 14, top + 11, 0xFFFFFFFF, true);
         graphics.text(this.font, hasActiveAuction() ? "LIVE" : "BEREIT",
                 right - 48, top + 11, hasActiveAuction() ? 0xFF65E6A5 : 0xFFB8C3D1, true);
 
-        graphics.text(this.font, "AUKTION", left + 16, top + 43, 0xFF91A9C5, true);
+        graphics.text(this.font, "AUKTION", left + 16, top + 43, 0xFFAEDFFF, true);
         if (hasActiveAuction()) {
             Identifier id = Identifier.tryParse(activeItemId);
             Item item = id == null ? null : BuiltInRegistries.ITEM.get(id)
@@ -339,7 +342,7 @@ public class AuctionScreen extends Screen {
             }
         }
 
-        graphics.fill(left + 14, top + 128, left + 206, top + 130, 0xFF3C5068);
+        graphics.fill(left + 14, top + 128, left + 206, top + 130, 0xFF58758F);
         graphics.text(this.font, "Startpreis (Cash)", left + 16, top + 168, 0xFFB8C3D1, true);
         graphics.text(this.font, "Dauer (Min.)", left + 16, top + 205, 0xFFB8C3D1, true);
 
