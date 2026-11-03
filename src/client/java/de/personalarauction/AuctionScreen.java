@@ -119,16 +119,21 @@ public class AuctionScreen extends Screen {
                 .toList();
     }
 
+    private static boolean hasQualifiedWinner() {
+        List<Map.Entry<String, Long>> ranked = getRankedPayments();
+        return !ranked.isEmpty() && ranked.get(0).getValue() >= activeStartingPrice;
+    }
+
     private static String getCurrentWinner() {
         List<Map.Entry<String, Long>> ranked = getRankedPayments();
-        return ranked.isEmpty() ? "..." : ranked.get(0).getKey();
+        return hasQualifiedWinner() ? ranked.get(0).getKey() : "...";
     }
 
     public static void tickAuction() {
         if (!activeItemId.isEmpty() && auctionEndAt > 0 && System.currentTimeMillis() >= auctionEndAt) {
-            lastResult = paymentTotals.isEmpty()
-                    ? "Auktion beendet: " + activeItemName + " | Kein Verkauf."
-                    : "Auktion beendet: " + activeItemName + " | Gewinner: " + getCurrentWinner();
+            lastResult = hasQualifiedWinner()
+                    ? "Auktion beendet: " + activeItemName + " | Gewinner: " + getCurrentWinner()
+                    : "Auktion beendet: " + activeItemName + " | Kein Verkauf.";
             auctionEndAt = 0;
             saveState();
         }
@@ -379,9 +384,9 @@ public class AuctionScreen extends Screen {
 
     private void endAuction() {
         if (!hasActiveAuction()) return;
-        lastResult = paymentTotals.isEmpty()
-                ? "Auktion vorzeitig beendet: " + activeItemName + " | Kein Verkauf."
-                : "Auktion vorzeitig beendet: " + activeItemName + " | Gewinner: " + getCurrentWinner();
+        lastResult = hasQualifiedWinner()
+                ? "Auktion beendet: " + activeItemName + " | Gewinner: " + getCurrentWinner()
+                : "Auktion beendet: " + activeItemName + " | Kein Verkauf.";
         clearActiveAuction();
         selectedItemStack = null;
         hasSelectedItem = false;
@@ -430,9 +435,6 @@ public class AuctionScreen extends Screen {
                 graphics.text(this.font, fitText(selectedItem.getHoverName().getString(), 140),
                         left + 62, top + 78, 0xFFFFFFFF, true);
             }
-            if (!lastResult.isBlank()) {
-                graphics.text(this.font, fitText(lastResult, 180), left + 16, top + 103, 0xFFCED7E2, true);
-            }
         }
 
         graphics.fill(left + 14, top + 128, left + 206, top + 130, 0xFF58758F);
@@ -445,7 +447,8 @@ public class AuctionScreen extends Screen {
         graphics.fill(paymentsTitleX - 4, top + 41, paymentsTitleX + paymentsTitleWidth + 4, top + 55, 0xFF263F56);
         graphics.text(this.font, "ZAHLUNGEN", paymentsTitleX, top + 43, 0xFFAEDFFF, true);
         graphics.text(this.font, "GEWINNER", left + 224, top + 64, 0xFF91A9C5, true);
-        graphics.text(this.font, fitText(getCurrentWinner(), 180), left + 224, top + 78, 0xFF65E6A5, true);
+        graphics.text(this.font, fitText(getCurrentWinner(), 180), left + 224, top + 78,
+                hasQualifiedWinner() ? 0xFF65E6A5 : 0xFF8795A7, true);
         graphics.text(this.font, "Spieler", left + 224, top + 101, 0xFFB8C3D1, true);
         graphics.text(this.font, "Gesamt", right - 68, top + 101, 0xFFB8C3D1, true);
         graphics.fill(left + 222, top + 114, right - 14, top + 115, 0xFF3C5068);
@@ -462,11 +465,13 @@ public class AuctionScreen extends Screen {
                     ? latePayments.get(row - ranked.size())
                     : ranked.get(row);
             int rowY = top + 123 + (row - paymentScroll) * 15;
-            if (!late && row == 0) graphics.fill(left + 220, rowY - 3, right - 14, rowY + 12, 0xFF29483F);
+            if (!late && row == 0) graphics.fill(left + 220, rowY - 3, right - 14, rowY + 12,
+                    hasQualifiedWinner() ? 0xFF29483F : 0xFF542D32);
             String playerLabel = late
                     ? (ranked.size() + (row - ranked.size()) + 1) + ". " + entry.getKey() + " (nach Auktion)"
                     : (row + 1) + ". " + entry.getKey();
-            int rowColor = late ? 0xFFFF6B6B : (row == 0 ? 0xFF65E6A5 : 0xFFE0E6ED);
+            int rowColor = late ? 0xFFFF6B6B
+                    : (row == 0 ? (hasQualifiedWinner() ? 0xFF65E6A5 : 0xFFFF6B6B) : 0xFFE0E6ED);
             graphics.text(this.font, fitText(playerLabel, 112), left + 224, rowY, rowColor, true);
             String total = fitText("$" + entry.getValue(), 66);
             graphics.text(this.font, total, right - 16 - this.font.width(total), rowY,
