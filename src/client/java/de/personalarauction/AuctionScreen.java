@@ -189,20 +189,18 @@ public class AuctionScreen extends Screen {
 
         priceField = new EditBox(this.font, left + 16, top + 178, 190, 20, Component.literal("Startpreis"));
         priceField.setMaxLength(10);
-        priceField.setValue("100");
         priceField.setHint(Component.literal("Startpreis in Cash"));
         addRenderableWidget(priceField);
 
         durationField = new EditBox(this.font, left + 16, top + 213, 190, 20, Component.literal("Dauer"));
         durationField.setMaxLength(5);
-        durationField.setValue("5");
         durationField.setHint(Component.literal("Dauer in Minuten"));
         addRenderableWidget(durationField);
 
         addRenderableWidget(Button.builder(Component.literal("Auktion starten"), button -> startAuction())
-                .bounds(left + 16, top + 239, 92, 20).build());
+                .bounds(left + 12, top + 239, 96, 20).build());
         endAuctionButton = Button.builder(Component.literal("Auktion beenden"), button -> endAuction())
-                .bounds(left + 114, top + 239, 92, 20).build();
+                .bounds(left + 112, top + 239, 96, 20).build();
         addRenderableWidget(endAuctionButton);
         updateEndButton();
     }
@@ -269,7 +267,6 @@ public class AuctionScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        super.extractRenderState(graphics, mouseX, mouseY, delta);
         int left = this.width / 2 - 210;
         int top = this.height / 2 - 125;
         int right = left + 420;
@@ -342,6 +339,8 @@ public class AuctionScreen extends Screen {
             graphics.text(this.font, errorMessage, left + 16, bottom - 16, 0xFFFFB86B, true);
         }
         updateEndButton();
+        // Widgets zuletzt zeichnen, damit Buttons und Eingabefelder sichtbar und anklickbar bleiben.
+        super.extractRenderState(graphics, mouseX, mouseY, delta);
     }
 
     @Override
