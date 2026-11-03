@@ -91,6 +91,8 @@ public class AuctionScreen extends Screen {
     }
 
     public static void setPaymentNotice(String sender, String amountText) {
+        // Vor dem Start einer Auktion (Start-Button sichtbar) keinerlei Zahlungen erfassen.
+        if (!hasActiveAuction()) return;
         try {
             long amount = parseAmount(amountText);
             if (amount <= 0 || sender == null || sender.isBlank()) return;
