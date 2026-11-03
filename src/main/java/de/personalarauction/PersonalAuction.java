@@ -23,7 +23,7 @@ public class PersonalAuction implements ModInitializer {
         PayloadTypeRegistry.serverboundPlay().register(AuctionCreatePayload.TYPE, AuctionCreatePayload.CODEC);
         ServerPlayNetworking.registerGlobalReceiver(AuctionCreatePayload.TYPE, (payload, context) -> {
             ServerPlayer player = context.player();
-            if (!player.serverLevel().getServer().getPlayerList().isOp(player.getGameProfile())) {
+            if (!context.server().getPlayerList().isOp(player.getGameProfile())) {
                 player.sendSystemMessage(Component.literal("Nur Operatoren dürfen Auktionen erstellen."));
                 return;
             }
@@ -46,7 +46,7 @@ public class PersonalAuction implements ModInitializer {
             String announcement = "Auktion gestartet: " + auctionItem.getCount() + "x "
                     + auctionItem.getHoverName().getString() + " | Startpreis: " + price
                     + " | Dauer: " + duration + " Minuten.";
-            player.serverLevel().getServer().getPlayerList().broadcastSystemMessage(Component.literal(announcement), false);
+            context.server().getPlayerList().broadcastSystemMessage(Component.literal(announcement), false);
         });
 
         ServerTickEvents.END_SERVER_TICK.register(PersonalAuction::tickAuctions);
