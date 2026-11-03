@@ -35,7 +35,6 @@ public class AuctionScreen extends Screen {
     private static String activeItemName = "";
     private static long auctionEndAt;
     private static String lastResult = "";
-    private static String paymentNotice = "";
     private static final Map<String, Long> paymentTotals = new LinkedHashMap<>();
     private int paymentScroll = 0;
     private static Path saveFile;
@@ -53,10 +52,8 @@ public class AuctionScreen extends Screen {
             long amount = Long.parseLong(amountText.replaceAll("[^0-9]", ""));
             if (amount <= 0) return;
             paymentTotals.merge(sender, amount, Long::sum);
-            paymentNotice = "";
             saveState();
         } catch (NumberFormatException ignored) {
-            paymentNotice = "Zahlung erkannt, Betrag konnte nicht gelesen werden.";
         }
     }
 
@@ -95,7 +92,6 @@ public class AuctionScreen extends Screen {
     private static void clearActiveAuction() {
         activeItemId = "";
         activeItemName = "";
-        activeStartPrice = 0;
         auctionEndAt = 0;
     }
 
