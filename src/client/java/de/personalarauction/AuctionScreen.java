@@ -187,25 +187,25 @@ public class AuctionScreen extends Screen {
                 .bounds(left + 16, top + 102, 190, 20).build();
         addRenderableWidget(itemPickerButton);
 
-        priceField = new EditBox(this.font, left + 16, top + 151, 190, 20, Component.literal("Startpreis"));
+        priceField = new EditBox(this.font, left + 16, top + 178, 190, 20, Component.literal("Startpreis"));
         priceField.setMaxLength(10);
         priceField.setValue("100");
         priceField.setHint(Component.literal("Startpreis in Cash"));
         addRenderableWidget(priceField);
 
-        durationField = new EditBox(this.font, left + 16, top + 190, 190, 20, Component.literal("Dauer"));
+        durationField = new EditBox(this.font, left + 16, top + 213, 190, 20, Component.literal("Dauer"));
         durationField.setMaxLength(5);
         durationField.setValue("5");
         durationField.setHint(Component.literal("Dauer in Minuten"));
         addRenderableWidget(durationField);
 
         addRenderableWidget(Button.builder(Component.literal("Auktion starten"), button -> startAuction())
-                .bounds(left + 16, top + 220, 92, 20).build());
+                .bounds(left + 16, top + 239, 92, 20).build());
         endAuctionButton = Button.builder(Component.literal("Auktion beenden"), button -> endAuction())
-                .bounds(left + 114, top + 220, 92, 20).build();
+                .bounds(left + 114, top + 239, 92, 20).build();
         addRenderableWidget(endAuctionButton);
         addRenderableWidget(Button.builder(Component.literal("Schließen"), button -> onClose())
-                .bounds(left + 16, top + 245, 190, 20).build());
+                .bounds(left + 16, top + 239, 190, 20).build());
         updateEndButton();
     }
 
@@ -306,11 +306,11 @@ public class AuctionScreen extends Screen {
         }
 
         graphics.fill(left + 14, top + 128, left + 206, top + 130, 0xFF3C5068);
-        graphics.text(this.font, "AKTUELLER GEWINNER", left + 16, top + 137, 0xFF91A9C5, true);
-        graphics.text(this.font, getCurrentWinner(), left + 16, top + 155, 0xFF65E6A5, true);
-        graphics.text(this.font, "Item bleibt im Inventar", left + 16, top + 169, 0xFF8795A7, true);
-        graphics.text(this.font, "Startpreis (Cash)", left + 16, top + 180, 0xFFB8C3D1, true);
-        graphics.text(this.font, "Dauer (Min.)", left + 16, top + 219, 0xFFB8C3D1, true);
+        graphics.text(this.font, "AKTUELLER GEWINNER", left + 16, top + 126, 0xFF91A9C5, true);
+        graphics.text(this.font, getCurrentWinner(), left + 16, top + 143, 0xFF65E6A5, true);
+        graphics.text(this.font, "Item bleibt im Inventar", left + 16, top + 159, 0xFF8795A7, true);
+        graphics.text(this.font, "Startpreis (Cash)", left + 16, top + 166, 0xFFB8C3D1, true);
+        graphics.text(this.font, "Dauer (Min.)", left + 16, top + 201, 0xFFB8C3D1, true);
 
         graphics.text(this.font, "ZAHLUNGEN & TEILNEHMER", left + 224, top + 43, 0xFF91A9C5, true);
         graphics.text(this.font, "Spieler", left + 224, top + 64, 0xFFB8C3D1, true);
