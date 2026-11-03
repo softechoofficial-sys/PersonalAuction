@@ -20,6 +20,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.Comparator;
 import java.util.Properties;
@@ -46,6 +48,7 @@ public class AuctionScreen extends Screen {
     private static String activeStartingPriceDisplay = "";
     private static String lastResult = "";
     private static final Map<String, Long> paymentTotals = new LinkedHashMap<>();
+    private static final Set<String> latePaymentSenders = new LinkedHashSet<>();
     private int paymentScroll = 0;
     private static Path saveFile;
 
@@ -88,11 +91,12 @@ public class AuctionScreen extends Screen {
     }
 
     public static void setPaymentNotice(String sender, String amountText) {
-        if (!hasActiveAuction()) return;
+        boolean duringAuction = hasActiveAuction();
         try {
             long amount = parseAmount(amountText);
             if (amount <= 0) return;
             paymentTotals.merge(sender, amount, Long::sum);
+            if (!duringAuction) latePaymentSenders.add(sender);
             saveState();
         } catch (NumberFormatException ignored) {
         }
@@ -151,6 +155,12 @@ public class AuctionScreen extends Screen {
             properties.load(input);
             lastResult = properties.getProperty("auction.lastResult", "");
             paymentTotals.clear();
+            latePaymentSenders.clear();
+            int latePaymentCount = Integer.parseInt(properties.getProperty("auction.latePaymentCount", "0"));
+            for (int i = 0; i < latePaymentCount; i++) {
+                String player = properties.getProperty("auction.latePayment." + i);
+                if (player != null) latePaymentSenders.add(player);
+            }
             int paymentCount = Integer.parseInt(properties.getProperty("auction.paymentCount", "0"));
             for (int i = 0; i < paymentCount; i++) {
                 String player = properties.getProperty("auction.payment." + i + ".player");
@@ -194,6 +204,12 @@ public class AuctionScreen extends Screen {
             properties.setProperty("auction.startingPriceDisplay", activeStartingPriceDisplay);
         }
         properties.setProperty("auction.paymentCount", Integer.toString(paymentTotals.size()));
+        properties.setProperty("auction.latePaymentCount", Integer.toString(latePaymentSenders.size()));
+        int lateIndex = 0;
+        for (String player : latePaymentSenders) {
+            properties.setProperty("auction.latePayment." + lateIndex, player);
+            lateIndex++;
+        }
         int paymentIndex = 0;
         for (Map.Entry<String, Long> entry : paymentTotals.entrySet()) {
             properties.setProperty("auction.payment." + paymentIndex + ".player", entry.getKey());
@@ -327,6 +343,7 @@ public class AuctionScreen extends Screen {
             activeStartingPriceDisplay = minPriceField.getValue().trim();
             lastResult = "";
             paymentTotals.clear();
+            latePaymentSenders.clear();
             paymentScroll = 0;
             errorMessage = "";
             saveState();
@@ -416,7 +433,7 @@ public class AuctionScreen extends Screen {
             int rowY = top + 123 + (i - paymentScroll) * 15;
             if (i == 0) graphics.fill(left + 220, rowY - 3, right - 14, rowY + 12, 0xFF29483F);
             graphics.text(this.font, fitText((i + 1) + ". " + entry.getKey(), 112), left + 224, rowY,
-                    i == 0 ? 0xFF65E6A5 : 0xFFE0E6ED, true);
+                    latePaymentSenders.contains(entry.getKey()) ? 0xFFFF6B6B : (i == 0 ? 0xFF65E6A5 : 0xFFE0E6ED), true);
             String total = fitText("$" + entry.getValue(), 66);
             graphics.text(this.font, total, right - 16 - this.font.width(total), rowY,
                     0xFFFFD479, true);
