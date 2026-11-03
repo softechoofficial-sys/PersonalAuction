@@ -11,12 +11,11 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.PotionContents;
+import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.alchemy.Potion;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -82,10 +81,11 @@ public class ItemPickerScreen extends Screen {
     }
 
     private void addPotionVariants(Item potionItem) {
-        BuiltInRegistries.POTION.forEach(potion -> {
-            var key = BuiltInRegistries.POTION.getKey(potion);
-            Holder<Potion> holder = BuiltInRegistries.POTION.getHolder(key).orElse(null);
-            if (holder == null) return;
+        if (Minecraft.getInstance().level == null) return;
+        var potions = Minecraft.getInstance().level.registryAccess().lookupOrThrow(Registries.POTION);
+        potions.listElements().forEach(holder -> {
+            var key = holder.unwrapKey().map(resourceKey -> resourceKey.identifier()).orElse(null);
+            if (key == null) return;
             ItemStack stack = new ItemStack(potionItem);
             stack.set(DataComponents.POTION_CONTENTS, new PotionContents(holder));
             allItems.add(new SelectableItem(stack, stack.getHoverName().getString() + " " + key));
@@ -93,10 +93,11 @@ public class ItemPickerScreen extends Screen {
     }
 
     private void addEnchantedBookVariants() {
-        BuiltInRegistries.ENCHANTMENT.forEach(enchantment -> {
-            var key = BuiltInRegistries.ENCHANTMENT.getKey(enchantment);
-            Holder<Enchantment> holder = BuiltInRegistries.ENCHANTMENT.getHolder(key).orElse(null);
-            if (holder == null) return;
+        if (Minecraft.getInstance().level == null) return;
+        var enchantments = Minecraft.getInstance().level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
+        enchantments.listElements().forEach(holder -> {
+            var key = holder.unwrapKey().map(resourceKey -> resourceKey.identifier()).orElse(null);
+            if (key == null) return;
             ItemEnchantments.Mutable stored = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
             stored.set(holder, 1);
             ItemStack book = new ItemStack(Items.ENCHANTED_BOOK);
