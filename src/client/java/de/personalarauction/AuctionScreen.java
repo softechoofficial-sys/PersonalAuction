@@ -10,6 +10,7 @@ import net.minecraft.network.chat.Component;
 public class AuctionScreen extends Screen {
     private EditBox priceField;
     private EditBox durationField;
+    private String errorMessage = "";
 
     public AuctionScreen() {
         super(Component.literal("PersonalAuction"));
@@ -48,9 +49,7 @@ public class AuctionScreen extends Screen {
             ClientPlayNetworking.send(new AuctionCreatePayload(price, duration));
             onClose();
         } catch (NumberFormatException exception) {
-            this.minecraft.gui.getChat().addClientSystemMessage(
-                    Component.literal("Bitte gib einen Startpreis ab 1 und eine Dauer von 1 bis 10080 Minuten ein.")
-            );
+            errorMessage = "Ungültiger Startpreis oder ungültige Dauer (1 bis 10080 Minuten).";
         }
     }
 
@@ -63,6 +62,10 @@ public class AuctionScreen extends Screen {
                 0xFFAAAAAA, true);
         graphics.text(this.font, "Dauer (Minuten)", this.width / 2 - 100, this.height / 2 - 10,
                 0xFFAAAAAA, true);
+        if (!errorMessage.isEmpty()) {
+            graphics.text(this.font, errorMessage, this.width / 2 - 100, this.height / 2 + 88,
+                    0xFFFF5555, true);
+        }
     }
 
     @Override
