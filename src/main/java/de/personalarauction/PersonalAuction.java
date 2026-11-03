@@ -42,7 +42,7 @@ public class PersonalAuction implements ModInitializer {
                 player.sendSystemMessage(Component.literal("Ungültiges Item ausgewählt."));
                 return;
             }
-            Item item = BuiltInRegistries.ITEM.get(itemId);
+            Item item = BuiltInRegistries.ITEM.get(itemId).map(reference -> reference.value()).orElse(null);
             if (item == net.minecraft.world.item.Items.AIR) {
                 player.sendSystemMessage(Component.literal("Bitte ein gültiges Item auswählen."));
                 return;
