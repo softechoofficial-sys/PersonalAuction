@@ -196,20 +196,20 @@ public class AuctionScreen extends Screen {
                 .bounds(left + 16, top + 102, 190, 20).build();
         addRenderableWidget(itemPickerButton);
 
-        priceField = new EditBox(this.font, left + 16, top + 178, 190, 20, Component.literal("Startpreis"));
+        priceField = new EditBox(this.font, left + 16, top + 180, 190, 20, Component.literal("Startpreis"));
         priceField.setMaxLength(10);
         priceField.setHint(Component.literal("Startpreis in Cash"));
         addRenderableWidget(priceField);
 
-        durationField = new EditBox(this.font, left + 16, top + 213, 190, 20, Component.literal("Dauer"));
+        durationField = new EditBox(this.font, left + 16, top + 217, 190, 20, Component.literal("Dauer"));
         durationField.setMaxLength(5);
         durationField.setHint(Component.literal("Dauer in Minuten"));
         addRenderableWidget(durationField);
 
         addRenderableWidget(Button.builder(Component.literal("Auktion starten"), button -> startAuction())
-                .bounds(left + 12, top + 239, 96, 20).build());
+                .bounds(left + 12, top + 243, 96, 20).build());
         endAuctionButton = Button.builder(Component.literal("Auktion beenden"), button -> endAuction())
-                .bounds(left + 112, top + 239, 96, 20).build();
+                .bounds(left + 112, top + 243, 96, 20).build();
         addRenderableWidget(endAuctionButton);
         updateEndButton();
     }
@@ -223,8 +223,8 @@ public class AuctionScreen extends Screen {
 
     private Component getSelectedItemLabel() {
         if (selectableItems.isEmpty()) return Component.literal("Kein Item verfügbar");
-        return Component.literal("Item auswählen: " + selectableItems.get(selectedItemIndex)
-                .getDefaultInstance().getHoverName().getString());
+        return Component.literal(fitText("Item auswählen: " + selectableItems.get(selectedItemIndex)
+                .getDefaultInstance().getHoverName().getString(), 178));
     }
 
     private void openItemPicker() {
@@ -279,7 +279,7 @@ public class AuctionScreen extends Screen {
         int left = this.width / 2 - 210;
         int top = this.height / 2 - 125;
         int right = left + 420;
-        int bottom = top + 270;
+        int bottom = top + 290;
 
         graphics.fill(left, top, right, bottom, 0xF0141822);
         graphics.fill(left, top, right, top + 30, 0xFF27364A);
@@ -312,9 +312,9 @@ public class AuctionScreen extends Screen {
         graphics.fill(left + 14, top + 128, left + 206, top + 130, 0xFF3C5068);
         graphics.text(this.font, "AKTUELLER GEWINNER", left + 16, top + 126, 0xFF91A9C5, true);
         graphics.text(this.font, fitText(getCurrentWinner(), 180), left + 16, top + 143, 0xFF65E6A5, true);
-        graphics.text(this.font, "Item bleibt im Inventar", left + 16, top + 159, 0xFF8795A7, true);
-        graphics.text(this.font, "Startpreis (Cash)", left + 16, top + 166, 0xFFB8C3D1, true);
-        graphics.text(this.font, "Dauer (Min.)", left + 16, top + 201, 0xFFB8C3D1, true);
+        graphics.text(this.font, "Item bleibt im Inventar", left + 16, top + 155, 0xFF8795A7, true);
+        graphics.text(this.font, "Startpreis (Cash)", left + 16, top + 168, 0xFFB8C3D1, true);
+        graphics.text(this.font, "Dauer (Min.)", left + 16, top + 205, 0xFFB8C3D1, true);
 
         graphics.text(this.font, "ZAHLUNGEN & TEILNEHMER", left + 224, top + 43, 0xFF91A9C5, true);
         graphics.text(this.font, "Spieler", left + 224, top + 64, 0xFFB8C3D1, true);
