@@ -30,8 +30,8 @@ public class ItemPickerScreen extends Screen {
     private static final int CELL_SIZE = 20;
 
     private final Screen parent;
-    private final Consumer<Item> onSelect;
-    private final List<Item> allItems = new ArrayList<>();
+    private final Consumer<ItemStack> onSelect;
+    private final List<ItemStack> allItems = new ArrayList<>();
     private EditBox searchField;
     private Button previousPageButton;
     private Button nextPageButton;
