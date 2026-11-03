@@ -85,7 +85,6 @@ public class AuctionScreen extends Screen {
             };
             amount = amount.multiply(multiplier);
         } else {
-            // Preserve support for ordinary grouped values such as 1,000 or 1.000.
             amount = new BigDecimal(number.replace(",", "").replace(".", ""));
         }
         return amount.setScale(0, RoundingMode.HALF_UP).longValueExact();
@@ -113,6 +112,7 @@ public class AuctionScreen extends Screen {
     }
 
     private static boolean hasQualifiedWinner() {
+        if (!hasActiveAuction()) return false;
         List<Map.Entry<String, Long>> ranked = getRankedPayments();
         return !ranked.isEmpty() && ranked.get(0).getValue() >= activeStartingPrice;
     }
@@ -278,8 +278,6 @@ public class AuctionScreen extends Screen {
             graphics.pose().popMatrix();
             return;
         }
-
-        // Draw the 16x16 Minecraft item sprite at 1.5x (24x24), centered in the 30x30 slot.
         graphics.pose().pushMatrix();
         graphics.pose().translate(x + 3, y + 3);
         graphics.pose().scale(1.5f, 1.5f);
@@ -420,7 +418,6 @@ public class AuctionScreen extends Screen {
         graphics.fill(auctionTitleX - 4, top + 41, auctionTitleX + auctionTitleWidth + 4, top + 55, 0xFF263F56);
         graphics.text(this.font, "AUKTION", auctionTitleX, top + 43, 0xFFAEDFFF, true);
         if (hasActiveAuction()) {
-            Identifier id = Identifier.tryParse(activeItemId);
             drawItemSlot(graphics, activeItemStack, left + 18, top + 61);
             graphics.text(this.font, fitText(activeItemName, 140), left + 62, top + 62, 0xFFFFFFFF, true);
             long seconds = auctionEndAt <= 0 ? 0 : Math.max(0, (auctionEndAt - System.currentTimeMillis()) / 1000);
@@ -488,7 +485,6 @@ public class AuctionScreen extends Screen {
             graphics.text(this.font, fitText(errorMessage, 180), left + 16, bottom - 16, 0xFFFFB86B, true);
         }
         updateEndButton();
-        // Widgets zuletzt zeichnen, damit Buttons und Eingabefelder sichtbar und anklickbar bleiben.
         super.extractRenderState(graphics, mouseX, mouseY, delta);
     }
 
