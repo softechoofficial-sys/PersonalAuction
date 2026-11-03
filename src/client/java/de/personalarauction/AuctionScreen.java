@@ -40,7 +40,7 @@ public class AuctionScreen extends Screen {
     private static Path saveFile;
 
     public AuctionScreen() {
-        super(Component.literal("PersonalAuction"));
+        super(Component.literal("Auktion"));
         BuiltInRegistries.ITEM.forEach(selectableItems::add);
         selectableItems.removeIf(item -> item == net.minecraft.world.item.Items.AIR);
         loadState();
@@ -65,8 +65,7 @@ public class AuctionScreen extends Screen {
 
     private static String getCurrentWinner() {
         List<Map.Entry<String, Long>> ranked = getRankedPayments();
-        return ranked.isEmpty() ? "..." :
-                ranked.get(0).getKey() + " – " + ranked.get(0).getValue() + " Cash";
+        return ranked.isEmpty() ? "..." : ranked.get(0).getKey();
     }
 
     public static void tickAuction() {
@@ -181,7 +180,14 @@ public class AuctionScreen extends Screen {
     private void drawItemSlot(GuiGraphicsExtractor graphics, Item item, int x, int y) {
         graphics.fill(x - 1, y - 1, x + 31, y + 31, 0xFF8FC9EE);
         graphics.fill(x, y, x + 30, y + 30, 0xFF263746);
-        if (item == null || item == net.minecraft.world.item.Items.AIR) return;
+        if (item == null || item == net.minecraft.world.item.Items.AIR) {
+            graphics.pose().pushMatrix();
+            graphics.pose().translate(x + 9, y + 3);
+            graphics.pose().scale(2.0f, 2.0f);
+            graphics.text(this.font, "?", 0, 0, 0xFFB8E2FF, true);
+            graphics.pose().popMatrix();
+            return;
+        }
 
         // Draw the 16x16 Minecraft item sprite at 1.5x (24x24), centered in the 30x30 slot.
         graphics.pose().pushMatrix();
@@ -262,7 +268,6 @@ public class AuctionScreen extends Screen {
             lastResult = "";
             paymentTotals.clear();
             paymentScroll = 0;
-            paymentNotice = "";
             errorMessage = "";
             saveState();
             updateEndButton();
@@ -295,7 +300,8 @@ public class AuctionScreen extends Screen {
         graphics.fill(left, top + 29, right, top + 30, 0xFF8FC9EE);
         graphics.fill(left + 1, top + 31, left + 210, bottom - 1, 0xFF1B2936);
         graphics.fill(left + 211, top + 31, right - 1, bottom - 1, 0xFF202F3D);
-        graphics.text(this.font, "PERSONAL AUCTION", left + 14, top + 11, 0xFFFFFFFF, true);
+        String ownerName = Minecraft.getInstance().getUser().getName();
+        graphics.text(this.font, fitText(ownerName + " | AUKTION", 300), left + 14, top + 11, 0xFFFFFFFF, true);
         graphics.text(this.font, hasActiveAuction() ? "LIVE" : "BEREIT",
                 right - 48, top + 11, hasActiveAuction() ? 0xFF65E6A5 : 0xFFB8C3D1, true);
 
