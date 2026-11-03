@@ -24,8 +24,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                 String sender = matcher.group(1).trim();
                 String amount = matcher.group(2);
                 Minecraft.getInstance().execute(() ->
-                        AuctionScreen.setPaymentNotice("Zahlung erkannt: " + sender + " -> $" + amount
-                                + " (Chatmeldung, nicht serverseitig bestätigt)"));
+                        AuctionScreen.setPaymentNotice(sender, amount));
             }
         });
 
