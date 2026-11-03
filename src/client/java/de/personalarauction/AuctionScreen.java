@@ -383,6 +383,8 @@ public class AuctionScreen extends Screen {
                 ? "Auktion vorzeitig beendet: " + activeItemName + " | Kein Verkauf."
                 : "Auktion vorzeitig beendet: " + activeItemName + " | Gewinner: " + getCurrentWinner();
         clearActiveAuction();
+        selectedItemStack = null;
+        hasSelectedItem = false;
         saveState();
         errorMessage = "";
         updateEndButton();
