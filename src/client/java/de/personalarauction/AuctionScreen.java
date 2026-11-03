@@ -360,9 +360,11 @@ public class AuctionScreen extends Screen {
         graphics.text(this.font, hasActiveAuction() ? "LIVE" : "BEREIT",
                 right - 48, top + 11, hasActiveAuction() ? 0xFF65E6A5 : 0xFFB8C3D1, true);
 
-        graphics.fill(left + 15, top + 40, left + 81, top + 56, 0xFF5BA9E6);
-        graphics.fill(left + 16, top + 41, left + 80, top + 55, 0xFF263F56);
-        graphics.text(this.font, "AUKTION", left + 20, top + 43, 0xFFAEDFFF, true);
+        int auctionTitleX = left + 20;
+        int auctionTitleWidth = this.font.width("AUKTION");
+        graphics.fill(auctionTitleX - 5, top + 40, auctionTitleX + auctionTitleWidth + 5, top + 56, 0xFF5BA9E6);
+        graphics.fill(auctionTitleX - 4, top + 41, auctionTitleX + auctionTitleWidth + 4, top + 55, 0xFF263F56);
+        graphics.text(this.font, "AUKTION", auctionTitleX, top + 43, 0xFFAEDFFF, true);
         if (hasActiveAuction()) {
             Identifier id = Identifier.tryParse(activeItemId);
             Item item = id == null ? null : BuiltInRegistries.ITEM.get(id)
@@ -393,9 +395,11 @@ public class AuctionScreen extends Screen {
         graphics.text(this.font, "Startpreis ($)", left + 16, top + 141, 0xFFB8C3D1, true);
         graphics.text(this.font, "Dauer (Min)", left + 16, top + 180, 0xFFB8C3D1, true);
 
-        graphics.fill(left + 223, top + 40, left + 307, top + 56, 0xFF5BA9E6);
-        graphics.fill(left + 224, top + 41, left + 306, top + 55, 0xFF263F56);
-        graphics.text(this.font, "ZAHLUNGEN", left + 227, top + 43, 0xFFAEDFFF, true);
+        int paymentsTitleX = left + 227;
+        int paymentsTitleWidth = this.font.width("ZAHLUNGEN");
+        graphics.fill(paymentsTitleX - 5, top + 40, paymentsTitleX + paymentsTitleWidth + 5, top + 56, 0xFF5BA9E6);
+        graphics.fill(paymentsTitleX - 4, top + 41, paymentsTitleX + paymentsTitleWidth + 4, top + 55, 0xFF263F56);
+        graphics.text(this.font, "ZAHLUNGEN", paymentsTitleX, top + 43, 0xFFAEDFFF, true);
         graphics.text(this.font, "GEWINNER", left + 224, top + 64, 0xFF91A9C5, true);
         graphics.text(this.font, fitText(getCurrentWinner(), 180), left + 224, top + 78, 0xFF65E6A5, true);
         graphics.text(this.font, "Spieler", left + 224, top + 101, 0xFFB8C3D1, true);
