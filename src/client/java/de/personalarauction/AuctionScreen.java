@@ -40,6 +40,7 @@ public class AuctionScreen extends Screen {
     private static String activeItemName = "";
     private static long auctionEndAt;
     private static long activeStartingPrice;
+    private static String activeStartingPriceDisplay = "";
     private static String lastResult = "";
     private static final Map<String, Long> paymentTotals = new LinkedHashMap<>();
     private int paymentScroll = 0;
@@ -130,6 +131,7 @@ public class AuctionScreen extends Screen {
         activeItemName = "";
         auctionEndAt = 0;
         activeStartingPrice = 0;
+        activeStartingPriceDisplay = "";
     }
 
     private static Path getSaveFile() {
@@ -155,6 +157,7 @@ public class AuctionScreen extends Screen {
             activeItemName = properties.getProperty("auction.itemName", "");
             auctionEndAt = Long.parseLong(properties.getProperty("auction.endAt", "0"));
             activeStartingPrice = Long.parseLong(properties.getProperty("auction.startingPrice", "0"));
+            activeStartingPriceDisplay = properties.getProperty("auction.startingPriceDisplay", Long.toString(activeStartingPrice));
             if (!activeItemId.isBlank()) {
                 Identifier id = Identifier.tryParse(activeItemId);
                 Item item = id == null ? null : BuiltInRegistries.ITEM.get(id)
@@ -183,6 +186,7 @@ public class AuctionScreen extends Screen {
             properties.setProperty("auction.itemName", activeItemName);
             properties.setProperty("auction.endAt", Long.toString(auctionEndAt));
             properties.setProperty("auction.startingPrice", Long.toString(activeStartingPrice));
+            properties.setProperty("auction.startingPriceDisplay", activeStartingPriceDisplay);
         }
         properties.setProperty("auction.paymentCount", Integer.toString(paymentTotals.size()));
         int paymentIndex = 0;
@@ -315,6 +319,7 @@ public class AuctionScreen extends Screen {
             activeItemName = selected.getDefaultInstance().getHoverName().getString();
             auctionEndAt = System.currentTimeMillis() + duration * 60_000L;
             activeStartingPrice = minPrice;
+            activeStartingPriceDisplay = minPriceField.getValue().trim();
             lastResult = "";
             paymentTotals.clear();
             paymentScroll = 0;
@@ -365,8 +370,8 @@ public class AuctionScreen extends Screen {
             long seconds = Math.max(0, (auctionEndAt - System.currentTimeMillis()) / 1000);
             graphics.text(this.font, "Restzeit: " + (seconds / 60) + "m " + (seconds % 60) + "s",
                     left + 62, top + 78, 0xFFB8C3D1, true);
-            graphics.text(this.font, "Startpreis: $" + activeStartingPrice,
-                    left + 62, top + 94, 0xFFFFD479, true);
+            graphics.text(this.font, "Startpreis: $" + activeStartingPriceDisplay,
+                    left + 62, top + 90, 0xFF65E6A5, true);
         } else {
             Item selectedItem = hasSelectedItem && !selectableItems.isEmpty()
                     ? selectableItems.get(Math.max(0, Math.min(selectedItemIndex, selectableItems.size() - 1)))
