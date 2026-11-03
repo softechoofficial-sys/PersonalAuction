@@ -31,7 +31,8 @@ public class ItemPickerScreen extends Screen {
 
     private final Screen parent;
     private final Consumer<ItemStack> onSelect;
-    private final List<ItemStack> allItems = new ArrayList<>();
+    private record SelectableItem(ItemStack stack, String searchText) {}
+    private final List<SelectableItem> allItems = new ArrayList<>();
     private EditBox searchField;
     private Button previousPageButton;
     private Button nextPageButton;
@@ -42,7 +43,10 @@ public class ItemPickerScreen extends Screen {
         this.parent = parent;
         this.onSelect = onSelect;
         BuiltInRegistries.ITEM.forEach(item -> {
-            if (item != Items.AIR) allItems.add(new ItemStack(item));
+            if (item != Items.AIR) {
+                ItemStack stack = new ItemStack(item);
+                allItems.add(new SelectableItem(stack, stack.getHoverName().getString() + " " + BuiltInRegistries.ITEM.getKey(item)));
+            }
         });
         addPotionVariants(Items.POTION);
         addPotionVariants(Items.SPLASH_POTION);
@@ -84,7 +88,7 @@ public class ItemPickerScreen extends Screen {
             if (holder == null) return;
             ItemStack stack = new ItemStack(potionItem);
             stack.set(DataComponents.POTION_CONTENTS, new PotionContents(holder));
-            allItems.add(stack);
+            allItems.add(new SelectableItem(stack, stack.getHoverName().getString() + " " + key));
         });
     }
 
@@ -97,18 +101,14 @@ public class ItemPickerScreen extends Screen {
             stored.set(holder, 1);
             ItemStack book = new ItemStack(Items.ENCHANTED_BOOK);
             book.set(DataComponents.STORED_ENCHANTMENTS, stored.toImmutable());
-            allItems.add(book);
+            allItems.add(new SelectableItem(book, book.getHoverName().getString() + " " + key));
         });
     }
 
-    private List<ItemStack> getFilteredItems() {
+    private List<SelectableItem> getFilteredItems() {
         String query = searchField == null ? "" : searchField.getValue().trim().toLowerCase(Locale.ROOT);
         if (query.isEmpty()) return allItems;
-        return allItems.stream().filter(item -> {
-            String name = item.getHoverName().getString().toLowerCase(Locale.ROOT);
-            String id = BuiltInRegistries.ITEM.getKey(item.getItem()).toString().toLowerCase(Locale.ROOT);
-            return name.contains(query) || id.contains(query);
-        }).toList();
+        return allItems.stream().filter(item -> item.searchText().toLowerCase(Locale.ROOT).contains(query)).toList();
     }
 
     private int getPageCount() {
@@ -134,7 +134,7 @@ public class ItemPickerScreen extends Screen {
         graphics.fill(this.width / 2 - 96, 27, this.width / 2 + 96, 28, 0xFF8FC9EE);
         String title = "Item für die Auktion auswählen";
         graphics.text(this.font, title, this.width / 2 - this.font.width(title) / 2, 16, 0xFFAEDFFF, true);
-        List<ItemStack> filtered = getFilteredItems();
+        List<SelectableItem> filtered = getFilteredItems();
         int pageCount = getPageCount();
         if (page >= pageCount) page = pageCount - 1;
         int start = page * PAGE_SIZE;
@@ -148,7 +148,7 @@ public class ItemPickerScreen extends Screen {
             int row = localIndex / COLUMNS;
             int x = startX + column * CELL_SIZE;
             int y = startY + row * CELL_SIZE;
-            ItemStack item = filtered.get(index);
+            ItemStack item = filtered.get(index).stack();
             graphics.fill(x, y, x + CELL_SIZE - 1, y + CELL_SIZE - 1, 0xAA263746);
             graphics.fill(x, y, x + CELL_SIZE - 1, y + 1, 0xFF45627A);
             graphics.item(item, x + 2, y + 2);
@@ -185,7 +185,7 @@ public class ItemPickerScreen extends Screen {
         int index = page * PAGE_SIZE + row * COLUMNS + column;
         if (index < 0 || index >= filtered.size()) return false;
 
-        onSelect.accept(filtered.get(index).copy());
+        onSelect.accept(filtered.get(index).stack().copy());
         returnToParent();
         return true;
     }
