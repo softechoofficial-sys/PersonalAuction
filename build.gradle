@@ -1,5 +1,6 @@
 plugins {
     id 'net.fabricmc.fabric-loom' version '1.17.21'
+    id 'com.guardsquare.proguard' version '7.8.2'
 }
 version = project.mod_version
 group = project.maven_group
@@ -26,4 +27,12 @@ processResources {
 java {
     toolchain { languageVersion = JavaLanguageVersion.of(25) }
     withSourcesJar()
+}
+
+// Obfuscate the remapped production JAR without shrinking or changing runtime logic.
+tasks.register('obfuscateModJar', proguard.gradle.ProGuardTask) {
+    dependsOn tasks.named('remapJar')
+    injars(tasks.named('remapJar').flatMap { it.archiveFile })
+    outjars(layout.buildDirectory.file("libs/${archives_base_name}-${version}-obfuscated.jar"))
+    configuration file('proguard-rules.pro')
 }
