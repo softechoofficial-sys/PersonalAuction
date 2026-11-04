@@ -1,13 +1,23 @@
-# Keep the Fabric client entrypoint name stable; Fabric loads it from fabric.mod.json.
+# Keep the Fabric client entrypoint stable; Fabric loads this exact class from fabric.mod.json.
 -keep class de.personalarauction.PersonalAuctionClient {
     public <init>();
     public void onInitializeClient();
 }
 
-# Preserve runtime annotations and generic/lambda metadata used by Java and Fabric.
+# Preserve metadata required by Fabric, Java annotations and generic signatures.
 -keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
 
-# Obfuscate names only. Do not remove or optimize code, so behavior stays unchanged.
+# Rename and repackage implementation classes/members to make static inspection harder.
+-repackageclasses 'x'
+-allowaccessmodification
+-useuniqueclassmembernames
+
+# Remove source/debug metadata from the distributable JAR.
+-renamesourcefileattribute Source
+-keepattributes SourceFile
+# Do not preserve line numbers, local variable names or method parameter names.
+
+# Names only: do not shrink or optimize, minimizing behavior changes.
 -dontshrink
 -dontoptimize
 -dontpreverify
