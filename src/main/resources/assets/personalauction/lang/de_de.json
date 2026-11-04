@@ -1,4 +1,6 @@
 {
   "key.category.personalauction.controls": "PersonalAuction",
   "key.personalauction.open_auction": "Auktionsfenster öffnen"
+,
+  "key.personalauction.open_auction_zero": "Auktionsfenster öffnen (0)"
 }
