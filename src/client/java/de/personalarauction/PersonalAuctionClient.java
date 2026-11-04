@@ -45,7 +45,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
             AuctionScreen.tickAuction();
             if (leaveAfterPayTicks >= 0 && --leaveAfterPayTicks <= 0) {
                 leaveAfterPayTicks = -1;
-                client.disconnect();
+                client.disconnect(null, false);
             }
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
