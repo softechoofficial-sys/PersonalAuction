@@ -1,6 +1,14 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.guardsquare:proguard-gradle:7.8.2'
+    }
+}
+
 plugins {
     id 'net.fabricmc.fabric-loom' version '1.17.21'
-    id 'com.guardsquare.proguard' version '7.8.2'
 }
 version = project.mod_version
 group = project.maven_group
