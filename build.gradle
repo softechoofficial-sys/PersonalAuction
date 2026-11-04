@@ -39,8 +39,8 @@ java {
 
 // Obfuscate the remapped production JAR without shrinking or changing runtime logic.
 tasks.register('obfuscateModJar', proguard.gradle.ProGuardTask) {
-    dependsOn tasks.named('remapJar')
-    injars(tasks.named('remapJar').flatMap { it.archiveFile })
+    dependsOn 'remapJar'
+    injars("build/libs/${archives_base_name}-${version}.jar")
     outjars(layout.buildDirectory.file("libs/${archives_base_name}-${version}-obfuscated.jar"))
     configuration file('proguard-rules.pro')
 }
