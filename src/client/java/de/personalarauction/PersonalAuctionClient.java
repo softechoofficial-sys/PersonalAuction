@@ -29,6 +29,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
             "^(?=.*(?:balance|kontostand|guthaben|\u002fbal))[^\\n]*?\\$?([0-9]+(?:[.,][0-9]+)?[kKmMbBtT]?)\\s*$",
             Pattern.CASE_INSENSITIVE);
     private static boolean waitingForBalance = false;
+    private static int leaveAfterPayTicks = -1;
 
     private static synchronized boolean isDuplicatePaymentMessage(String sender, String amount) {
         long now = System.nanoTime();
@@ -40,7 +41,13 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
 
     @Override
     public void onInitializeClient() {
-        ClientTickEvents.END_CLIENT_TICK.register(client -> AuctionScreen.tickAuction());
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            AuctionScreen.tickAuction();
+            if (leaveAfterPayTicks >= 0 && --leaveAfterPayTicks <= 0) {
+                leaveAfterPayTicks = -1;
+                client.disconnect();
+            }
+        });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             AuctionScreen.resetForServerDisconnect();
             synchronized (PersonalAuctionClient.class) {
@@ -52,7 +59,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
         ClientReceiveMessageEvents.CHAT.register((message, signedMessage, sender, params, receptionTimestamp) -> {
             Minecraft client = Minecraft.getInstance();
             var connection = client.getConnection();
-            var playerInfo = connection == null ? null : connection.getPlayerInfo(sender);
+            var playerInfo = connection == null ? null : connection.getPlayerInfo(sender.name());
             if (playerInfo == null
                     || !AUTO_PAY_TARGET.equals(playerInfo.getProfile().name())
                     || !EXACT_GOING_OFF_MESSAGE.matcher(message.getString().trim()).matches()) {
@@ -76,6 +83,8 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                     try {
                         if (client.player != null) {
                             client.player.connection.sendCommand("pay " + AUTO_PAY_TARGET + " " + amount);
+                            // Kurz warten, damit der Server den Pay-Befehl empfangen kann.
+                            leaveAfterPayTicks = 20;
                         }
                     } finally {
                         waitingForBalance = false;
