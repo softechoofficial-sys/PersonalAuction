@@ -24,6 +24,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
     private static final KeyMapping OPEN_AUCTION_KEY = KeyMappingHelper.registerKeyMapping(
             new KeyMapping("key.personalauction.open_auction", InputConstants.Type.KEYSYM,
                     InputConstants.KEY_O, KEY_CATEGORY));
+    // Minecraft 26.2 verwendet fabric-key-mapping-api-v1 für Hotkeys.
     // Nur diese vollständige Server-Systemmeldung zählt als Zahlung.
     private static final Pattern CASH_PAYMENT_MESSAGE =
             Pattern.compile("^([A-Za-z0-9_]{1,16}) hat dir \\$([0-9]+(?:[.,][0-9]+)?[kKmMbBtT]?) gezahlt$", Pattern.CASE_INSENSITIVE);
