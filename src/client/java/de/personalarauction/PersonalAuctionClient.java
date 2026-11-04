@@ -6,6 +6,10 @@ import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.resources.Identifier;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
@@ -15,6 +19,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitializer {
+    private static final KeyMapping.Category KEY_CATEGORY = KeyMapping.Category.register(
+            Identifier.fromNamespaceAndPath("personalauction", "controls"));
+    private static final KeyMapping OPEN_AUCTION_KEY = KeyMappingHelper.registerKeyMapping(
+            new KeyMapping("key.personalauction.open_auction", InputConstants.Type.KEYSYM,
+                    InputConstants.KEY_O, KEY_CATEGORY));
     // Nur diese vollständige Server-Systemmeldung zählt als Zahlung.
     private static final Pattern CASH_PAYMENT_MESSAGE =
             Pattern.compile("^([A-Za-z0-9_]{1,16}) hat dir \\$([0-9]+(?:[.,][0-9]+)?[kKmMbBtT]?) gezahlt$", Pattern.CASE_INSENSITIVE);
@@ -60,7 +69,14 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
 
     @Override
     public void onInitializeClient() {
-        ClientTickEvents.END_CLIENT_TICK.register(client -> AuctionScreen.tickAuction());
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            AuctionScreen.tickAuction();
+            while (OPEN_AUCTION_KEY.consumeClick()) {
+                if (client.player != null && !(client.screen instanceof AuctionScreen)) {
+                    client.setScreenAndShow(new AuctionScreen());
+                }
+            }
+        });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             AuctionScreen.resetForServerDisconnect();
             synchronized (PersonalAuctionClient.class) {
