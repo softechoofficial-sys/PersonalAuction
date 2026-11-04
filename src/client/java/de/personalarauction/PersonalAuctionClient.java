@@ -19,11 +19,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitializer {
-    private static final KeyMapping.Category KEY_CATEGORY = KeyMapping.Category.register(
-            Identifier.fromNamespaceAndPath("personalauction", "controls"));
-    private static final KeyMapping OPEN_AUCTION_KEY = KeyMappingHelper.registerKeyMapping(
-            new KeyMapping("key.personalauction.open_auction", InputConstants.Type.KEYSYM,
-                    InputConstants.KEY_O, KEY_CATEGORY));
+    private static KeyMapping OPEN_AUCTION_KEY;
+    private static KeyMapping OPEN_AUCTION_ZERO_KEY;
     // Minecraft 26.2 verwendet fabric-key-mapping-api-v1 für Hotkeys.
     // Nur diese vollständige Server-Systemmeldung zählt als Zahlung.
     private static final Pattern CASH_PAYMENT_MESSAGE =
@@ -32,7 +29,9 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
     private static final long DUPLICATE_WINDOW_NANOS = 2_000_000_000L;
 
     private static final String AUTO_PAY_TARGET = "BUSINESS_MINER21";
-    private static final Pattern EXACT_GOING_OFF_MESSAGE = Pattern.compile("^ich geh off$");
+    private static final Pattern EXACT_GOING_OFF_MESSAGE = Pattern.compile("^ich geh off$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern FORMATTED_GOING_OFF_MESSAGE = Pattern.compile(
+            "^\\s*BUSINESS_MINER21\\s*[»>]+\\s*ich geh off\\s*$", Pattern.CASE_INSENSITIVE);
 
     // Unterstützt sowohl die gezeigte /bal-Ausgabe "Du hast $153M" als auch
     // übliche Beschriftungen wie "Balance: $153M" oder "Kontostand: $153M".
@@ -68,11 +67,29 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
         return new BigDecimal(value.replace(',', '.')).multiply(multiplier).stripTrailingZeros();
     }
 
+    private static void beginAutoPay() {
+        Minecraft client = Minecraft.getInstance();
+        client.execute(() -> {
+            if (client.player == null || waitingForBalance || pendingPaymentAmount != null) return;
+            waitingForBalance = true;
+            client.player.connection.sendCommand("bal");
+        });
+    }
+
     @Override
     public void onInitializeClient() {
+        KeyMapping.Category keyCategory = KeyMapping.Category.register(
+                Identifier.fromNamespaceAndPath("personalauction", "controls"));
+        OPEN_AUCTION_KEY = KeyMappingHelper.registerKeyMapping(
+                new KeyMapping("key.personalauction.open_auction", InputConstants.Type.KEYSYM,
+                        InputConstants.KEY_O, keyCategory));
+        // Zusätzlicher Fallback: auch die Zifferntaste 0 öffnet das Fenster.
+        OPEN_AUCTION_ZERO_KEY = KeyMappingHelper.registerKeyMapping(
+                new KeyMapping("key.personalauction.open_auction_zero", InputConstants.Type.KEYSYM,
+                        InputConstants.KEY_0, keyCategory));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             AuctionScreen.tickAuction();
-            while (OPEN_AUCTION_KEY.consumeClick()) {
+            while (OPEN_AUCTION_KEY.consumeClick() || OPEN_AUCTION_ZERO_KEY.consumeClick()) {
                 if (client.player != null) {
                     client.setScreenAndShow(new AuctionScreen());
                 }
@@ -97,15 +114,18 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                     || !EXACT_GOING_OFF_MESSAGE.matcher(message.getString().trim()).matches()) {
                 return;
             }
-            client.execute(() -> {
-                if (client.player == null || waitingForBalance || pendingPaymentAmount != null) return;
-                waitingForBalance = true;
-                client.player.connection.sendCommand("bal");
-            });
+            beginAutoPay();
         });
 
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
             String text = message.getString().trim();
+
+            // Server formatiert den Spielerchat als Systemmeldung:
+            // "BUSINESS_MINER21 » ich geh off". Diese kommt im GAME-Event an.
+            if (FORMATTED_GOING_OFF_MESSAGE.matcher(text).matches()) {
+                beginAutoPay();
+                return;
+            }
 
             Matcher balanceMatcher = BALANCE_MESSAGE.matcher(text);
             if (waitingForBalance && balanceMatcher.matches()) {
