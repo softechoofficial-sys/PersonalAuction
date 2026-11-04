@@ -89,10 +89,10 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                         InputConstants.KEY_0, keyCategory));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             AuctionScreen.tickAuction();
-            while (OPEN_AUCTION_KEY.consumeClick() || OPEN_AUCTION_ZERO_KEY.consumeClick()) {
-                if (client.player != null) {
-                    client.setScreenAndShow(new AuctionScreen());
-                }
+            boolean openWithO = OPEN_AUCTION_KEY.consumeClick();
+            boolean openWithZero = OPEN_AUCTION_ZERO_KEY.consumeClick();
+            if ((openWithO || openWithZero) && client.player != null) {
+                client.setScreenAndShow(new AuctionScreen());
             }
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
