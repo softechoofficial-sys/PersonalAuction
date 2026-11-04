@@ -72,7 +72,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             AuctionScreen.tickAuction();
             while (OPEN_AUCTION_KEY.consumeClick()) {
-                if (client.player != null && !(client.screen instanceof AuctionScreen)) {
+                if (client.player != null) {
                     client.setScreenAndShow(new AuctionScreen());
                 }
             }
