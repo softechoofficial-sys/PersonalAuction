@@ -37,10 +37,10 @@ java {
     withSourcesJar()
 }
 
-// Obfuscate the remapped production JAR without shrinking or changing runtime logic.
+// Minecraft 26.1+ uses non-remapping Loom; obfuscate the regular production JAR.
 tasks.register('obfuscateModJar', proguard.gradle.ProGuardTask) {
-    dependsOn 'remapJar'
-    injars("build/libs/${archives_base_name}-${version}.jar")
+    dependsOn tasks.named('jar')
+    injars(tasks.named('jar').flatMap { it.archiveFile })
     outjars(layout.buildDirectory.file("libs/${archives_base_name}-${version}-obfuscated.jar"))
     configuration file('proguard-rules.pro')
 }
