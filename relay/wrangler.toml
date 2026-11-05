@@ -1,0 +1,12 @@
+name = "personalauction-relay"
+main = "src/index.js"
+compatibility_date = "2026-11-05"
+workers_dev = true
+
+[[durable_objects.bindings]]
+name = "PRESENCE"
+class_name = "PresenceStoreDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PresenceStoreDO"]
