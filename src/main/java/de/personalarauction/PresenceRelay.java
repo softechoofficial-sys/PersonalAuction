@@ -29,7 +29,7 @@ public final class PresenceRelay implements ModInitializer {
 
             long now = System.currentTimeMillis();
             boolean newlyDetected = !PLAYERS.containsKey(playerId);
-            String verifiedName = sender.getGameProfile().getName();
+            String verifiedName = sender.getName().getString();
             PLAYERS.put(playerId, new Presence(verifiedName, now));
 
             // Vollständige Momentaufnahme an den gerade erkannten Mod-Client senden.
