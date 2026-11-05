@@ -26,7 +26,6 @@ import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.Comparator;
 import java.util.Properties;
-import java.util.UUID;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.regex.Matcher;
@@ -52,7 +51,6 @@ public class AuctionScreen extends Screen {
     private static String lastResult = "";
     private static final Map<String, Long> paymentTotals = new LinkedHashMap<>();
     private static final Map<String, Long> latePaymentTotals = new LinkedHashMap<>();
-    private static final Map<UUID, String> modPlayers = new LinkedHashMap<>();
     private int paymentScroll = 0;
     private static Path saveFile;
 
@@ -160,22 +158,7 @@ public class AuctionScreen extends Screen {
         activeStartingPriceDisplay = "";
     }
 
-    public static void updateModPlayer(String playerId, String playerName, boolean online) {
-        try {
-            UUID id = UUID.fromString(playerId);
-            Minecraft client = Minecraft.getInstance();
-            if (client.player != null && id.equals(client.player.getUUID())) return;
-            if (online && playerName != null && !playerName.isBlank()) {
-                modPlayers.put(id, playerName);
-            } else {
-                modPlayers.remove(id);
-            }
-        } catch (IllegalArgumentException ignored) {
-        }
-    }
-
     public static void resetForServerDisconnect() {
-        modPlayers.clear();
         clearActiveAuction();
         lastResult = "";
         paymentTotals.clear();
@@ -295,8 +278,7 @@ public class AuctionScreen extends Screen {
             graphics.pose().translate(x + (30.0f - textWidth) / 2.0f, y + (30.0f - textHeight) / 2.0f);
             graphics.pose().scale(scale, scale);
             graphics.text(this.font, "?", 0, 0, 0xFFB8E2FF, true);
-            graphics.pose().popMatrix();
-            return;
+                return;
         }
         graphics.pose().pushMatrix();
         graphics.pose().translate(x + 3, y + 3);
@@ -420,15 +402,6 @@ public class AuctionScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        // Uniformly scale the complete auction window (background, text and widgets)
-        // around the screen center, then move the whole composition slightly upward.
-        float centerX = this.width / 2.0f;
-        float centerY = this.height / 2.0f;
-        graphics.pose().pushMatrix();
-        graphics.pose().translate(centerX, centerY - 8.0f);
-        graphics.pose().scale(0.9f, 0.9f);
-        graphics.pose().translate(-centerX, -centerY);
-
         int left = this.width / 2 - 210;
         int top = this.height / 2 - 125;
         int right = left + 420;
@@ -519,10 +492,6 @@ public class AuctionScreen extends Screen {
             graphics.text(this.font, "Mausrad: Liste scrollen (" + totalRows + " Zahlungen)",
                     left + 202, bottom - 18, 0xFF8795A7, true);
         }
-        String modUserLabel = modPlayers.isEmpty()
-                ? "MOD-NUTZER: keine"
-                : "MOD-NUTZER: " + String.join(", ", modPlayers.values());
-        graphics.text(this.font, fitText(modUserLabel, 190), left + 202, bottom - 31, 0xFF91A9C5, true);
         if (!errorMessage.isEmpty()) {
             graphics.text(this.font, fitText(errorMessage, 180), left + 14, bottom - 16, 0xFFFFB86B, true);
         }
@@ -531,47 +500,23 @@ public class AuctionScreen extends Screen {
         graphics.pose().popMatrix();
     }
 
-    private double contentMouseX(double x) {
-        return this.width / 2.0 + (x - this.width / 2.0) / 0.9;
-    }
-
-    private double contentMouseY(double y) {
-        double center = this.height / 2.0;
-        return center + (y - (center - 8.0)) / 0.9;
-    }
-
-    private MouseButtonEvent transformMouseEvent(MouseButtonEvent event) {
-        return new MouseButtonEvent(
-                contentMouseX(event.x()),
-                contentMouseY(event.y()),
-                event.buttonInfo()
-        );
-    }
-
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        return super.mouseClicked(transformMouseEvent(event), doubleClick);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
-        return super.mouseReleased(transformMouseEvent(event));
+        return super.mouseReleased(event);
     }
 
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
-        return super.mouseDragged(transformMouseEvent(event), dragX / 0.9, dragY / 0.9);
-    }
-
-    @Override
-    public void mouseMoved(double mouseX, double mouseY) {
-        super.mouseMoved(contentMouseX(mouseX), contentMouseY(mouseY));
+        return super.mouseDragged(event, dragX, dragY);
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        mouseX = contentMouseX(mouseX);
-        mouseY = contentMouseY(mouseY);
         int left = this.width / 2 - 210;
         int top = this.height / 2 - 125;
         if (mouseX >= left + 194 && mouseX <= left + 374 && mouseY >= top + 104 && mouseY <= top + 221) {
