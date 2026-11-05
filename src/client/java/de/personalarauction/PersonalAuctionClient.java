@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.resources.Identifier;
@@ -19,6 +20,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitializer {
+    private static int presenceHeartbeatTicks;
     private static KeyMapping OPEN_AUCTION_KEY;
     private static KeyMapping OPEN_AUCTION_ZERO_KEY;
     // Minecraft 26.2 verwendet fabric-key-mapping-api-v1 für Hotkeys.
@@ -76,8 +78,27 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
         });
     }
 
+    private static void sendPresence(Minecraft client) {
+        if (client.player == null || !ClientPlayNetworking.canSend(PlayerPresencePayload.TYPE)) return;
+        ClientPlayNetworking.send(new PlayerPresencePayload(
+                client.player.getUUID().toString(), client.getUser().getName(), true));
+    }
+
     @Override
     public void onInitializeClient() {
+        ClientPlayNetworking.registerGlobalReceiver(PlayerPresencePayload.TYPE, (payload, context) ->
+                context.client().execute(() -> AuctionScreen.updateModPlayer(
+                        payload.playerId(), payload.playerName(), payload.online())));
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (client.player != null && ++presenceHeartbeatTicks >= 100) {
+                presenceHeartbeatTicks = 0;
+                sendPresence(client);
+            }
+        });
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+            presenceHeartbeatTicks = 0;
+            sendPresence(client);
+        });
         KeyMapping.Category keyCategory = KeyMapping.Category.register(
                 Identifier.fromNamespaceAndPath("personalauction", "controls"));
         OPEN_AUCTION_KEY = KeyMappingHelper.registerKeyMapping(
@@ -96,6 +117,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
             }
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            presenceHeartbeatTicks = 0;
             AuctionScreen.resetForServerDisconnect();
             synchronized (PersonalAuctionClient.class) {
                 RECENT_PAYMENT_MESSAGES.clear();
