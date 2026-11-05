@@ -8,8 +8,11 @@
     "PersonalAuction"
   ],
   "license": "MIT",
-  "environment": "client",
+  "environment": "*",
   "entrypoints": {
+    "main": [
+      "de.personalarauction.PresenceRelay"
+    ],
     "client": [
       "de.personalarauction.PersonalAuctionClient"
     ]
