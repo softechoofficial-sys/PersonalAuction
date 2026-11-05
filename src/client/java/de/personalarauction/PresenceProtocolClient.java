@@ -1,199 +1,148 @@
 package de.personalarauction;
 
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-
 import javax.crypto.spec.SecretKeySpec;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import java.io.*;
+import java.net.URI;
+import java.net.http.*;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyPair;
-import java.security.PublicKey;
-import java.util.Base64;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.security.*;
+import java.util.*;
+import java.util.concurrent.*;
+import com.google.gson.*;
 
-/** Client-only encrypted presence exchange and locally decrypted last-seen cache. */
 public final class PresenceProtocolClient {
     private static final String CLIENT_BUILD = "121";
-    private static final Map<UUID, PublicKey> PEERS = new HashMap<>();
-    private static final Map<UUID, LastSeen> HISTORY = new HashMap<>();
-    private static final Map<UUID, Long> LAST_PACKET_RECEIVED = new HashMap<>();
-    private static final Map<String, PresenceMessagePayload> PENDING = new HashMap<>();
+    private static final String BASE = "https://personalauction-relay.softecho-official.workers.dev";
+    private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(8)).build();
+    private static final Map<UUID, PublicKey> PEERS = new ConcurrentHashMap<>();
+    private static final Map<UUID, LastSeen> HISTORY = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> LAST_PACKET_RECEIVED = new ConcurrentHashMap<>();
     private static KeyPair identity;
     private static UUID selfId;
-    private static int heartbeatTicks;
-
+    private static int ticks;
     private PresenceProtocolClient() {}
-
-    public static void initialize() {
-        ClientPlayNetworking.registerGlobalReceiver(PresenceKeyPayload.TYPE, (payload, context) ->
-                context.client().execute(() -> acceptPublicKey(payload)));
-        ClientPlayNetworking.registerGlobalReceiver(PresenceMessagePayload.TYPE, (payload, context) ->
-                context.client().execute(() -> acceptEncryptedMessage(payload)));
-    }
+    public static void initialize() {}
 
     public static void onJoin(Minecraft client) {
-        heartbeatTicks = 0;
-        PEERS.clear();
-        HISTORY.clear();
-        LAST_PACKET_RECEIVED.clear();
-        PENDING.clear();
-        if (client.player == null || !ClientPlayNetworking.canSend(PresenceKeyPayload.TYPE)) return;
+        ticks=0; PEERS.clear(); LAST_PACKET_RECEIVED.clear();
+        if (client.player == null) return;
         try {
-            identity = PresenceIdentityStore.loadOrCreate();
-            selfId = client.player.getUUID();
-            String encoded = Base64.getEncoder().encodeToString(identity.getPublic().getEncoded());
-            ClientPlayNetworking.send(new PresenceKeyPayload(selfId.toString(), encoded));
-        } catch (Exception exception) {
-            System.err.println("[PersonalAuction] Präsenz-Schlüssel konnte nicht geladen werden: "
-                    + exception.getMessage());
+            identity=PresenceIdentityStore.loadOrCreate();
+            selfId=client.player.getUUID();
+            String key=Base64.getEncoder().encodeToString(identity.getPublic().getEncoded());
+            post("/key", new JsonObjectBuilder().put("id",selfId.toString()).put("key",key).json());
+            poll(client);
+        } catch(Exception e) {
+            System.err.println("[PersonalAuction] Relay-Verbindung fehlgeschlagen: "+e.getMessage());
         }
     }
 
     public static void tick(Minecraft client) {
-        if (client.player == null || identity == null || selfId == null) return;
-        if (++heartbeatTicks < 100) {
-            expireStalePlayers();
-            return;
-        }
-        heartbeatTicks = 0;
-        long now = System.currentTimeMillis();
-        byte[] plaintext;
+        if(client.player==null || identity==null || selfId==null) return;
+        if(++ticks<100) { expireStalePlayers(); return; }
+        ticks=0;
         try {
-            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-            try (DataOutputStream output = new DataOutputStream(bytes)) {
-                output.writeLong(now);
-                output.writeUTF(client.getUser().getName());
-                output.writeUTF(CLIENT_BUILD);
+            long now=System.currentTimeMillis();
+            ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+            try(DataOutputStream out=new DataOutputStream(bytes)) {
+                out.writeLong(now); out.writeUTF(client.getUser().getName()); out.writeUTF(CLIENT_BUILD);
             }
-            plaintext = bytes.toByteArray();
-        } catch (Exception impossible) {
-            return;
-        }
-
-        for (Map.Entry<UUID, PublicKey> peer : PEERS.entrySet()) {
-            UUID recipient = peer.getKey();
-            if (recipient.equals(selfId)) continue;
-            try {
-                String aadText = selfId + "|" + recipient;
-                SecretKeySpec key = PresenceCrypto.deriveMessageKey(
-                        identity.getPrivate(), peer.getValue(), sharedContext(selfId, recipient));
-                byte[] encrypted = PresenceCrypto.encrypt(key, plaintext, aadText.getBytes(StandardCharsets.UTF_8));
-                ClientPlayNetworking.send(new PresenceMessagePayload(selfId.toString(), recipient.toString(),
-                        Base64.getEncoder().encodeToString(encrypted)));
-            } catch (Exception ignored) {
-                // A bad/stale peer key must not stop heartbeats to other peers.
+            JsonArray peers=new JsonArray();
+            for(var entry:PEERS.entrySet()) {
+                UUID recipient=entry.getKey();
+                try {
+                    String aad=selfId+"|"+recipient;
+                    SecretKeySpec key=PresenceCrypto.deriveMessageKey(identity.getPrivate(),entry.getValue(),sharedContext(selfId,recipient));
+                    byte[] encrypted=PresenceCrypto.encrypt(key,bytes.toByteArray(),aad.getBytes(StandardCharsets.UTF_8));
+                    JsonObject item=new JsonObject();
+                    item.addProperty("recipient",recipient.toString());
+                    item.addProperty("ciphertext",Base64.getEncoder().encodeToString(encrypted));
+                    peers.add(item);
+                } catch(Exception ignored) {}
             }
+            for(JsonElement element:peers) {
+                JsonObject item=element.getAsJsonObject();
+                post("/message",new JsonObjectBuilder().put("sender",selfId.toString())
+                    .put("recipient",item.get("recipient").getAsString())
+                    .put("ciphertext",item.get("ciphertext").getAsString()).json());
+            }
+            poll(client);
+        } catch(Exception e) {
+            System.err.println("[PersonalAuction] Relay-Abgleich fehlgeschlagen: "+e.getMessage());
         }
         expireStalePlayers();
     }
 
-    private static void acceptPublicKey(PresenceKeyPayload payload) {
-        if (selfId == null || identity == null) return;
-        try {
-            UUID id = UUID.fromString(payload.playerId());
-            if (id.equals(selfId) || payload.publicKey().length() > 512) return;
-            PublicKey key = PresenceCrypto.decodePublicKey(Base64.getDecoder().decode(payload.publicKey()));
-            PEERS.put(id, key);
-            retryPending();
-        } catch (Exception ignored) {
-            // Ignore malformed directory entries.
-        }
+    private static void poll(Minecraft client) {
+        if(selfId==null) return;
+        get("/keys").thenAccept(body -> {
+            try {
+                JsonArray keys=JsonParser.parseString(body).getAsJsonArray();
+                for(JsonElement el:keys) {
+                    JsonObject o=el.getAsJsonObject();
+                    UUID id=UUID.fromString(o.get("id").getAsString());
+                    if(!id.equals(selfId)) PEERS.put(id,PresenceCrypto.decodePublicKey(Base64.getDecoder().decode(o.get("key").getAsString())));
+                }
+                get("/messages?recipient="+selfId).thenAccept(messages -> {
+                    try {
+                        JsonArray arr=JsonParser.parseString(messages).getAsJsonArray();
+                        for(JsonElement el:arr) decrypt(el.getAsJsonObject(),client);
+                    } catch(Exception ignored) {}
+                });
+            } catch(Exception ignored) {}
+        });
     }
 
-    private static void acceptEncryptedMessage(PresenceMessagePayload payload) {
-        if (selfId == null || !selfId.toString().equals(payload.recipientId())
-                || payload.ciphertext().length() > 22_000) return;
+    private static void decrypt(JsonObject o,Minecraft client) {
         try {
-            UUID sender = UUID.fromString(payload.senderId());
-            if (sender.equals(selfId)) return;
-            PENDING.put(sender.toString(), payload);
-            decryptMessage(payload);
-        } catch (IllegalArgumentException ignored) {
-            // Ignore invalid routing identifiers.
-        }
-    }
-
-    private static void retryPending() {
-        for (PresenceMessagePayload payload : PENDING.values().toArray(PresenceMessagePayload[]::new)) {
-            decryptMessage(payload);
-        }
-    }
-
-    private static void decryptMessage(PresenceMessagePayload payload) {
-        if (identity == null || selfId == null) return;
-        try {
-            UUID sender = UUID.fromString(payload.senderId());
-            PublicKey senderKey = PEERS.get(sender);
-            if (senderKey == null) return;
-            byte[] envelope = Base64.getDecoder().decode(payload.ciphertext());
-            String aadText = sender + "|" + selfId;
-            SecretKeySpec key = PresenceCrypto.deriveMessageKey(
-                    identity.getPrivate(), senderKey, sharedContext(sender, selfId));
-            byte[] plaintext = PresenceCrypto.decrypt(key, envelope, aadText.getBytes(StandardCharsets.UTF_8));
-            try (DataInputStream input = new DataInputStream(new ByteArrayInputStream(plaintext))) {
-                long timestamp = input.readLong();
-                String name = input.readUTF();
-                String build = input.readUTF();
-                if (timestamp <= 0 || name.isBlank() || name.length() > 16
-                        || (!"121".equals(build) && !"146".equals(build)) || input.available() != 0) return;
-                HISTORY.put(sender, new LastSeen(name, timestamp, build));
-                LAST_PACKET_RECEIVED.put(sender, System.currentTimeMillis());
-                PENDING.remove(sender.toString());
-                AuctionScreen.updateModPlayer(sender.toString(), name, true);
+            UUID sender=UUID.fromString(o.get("sender").getAsString());
+            PublicKey pub=PEERS.get(sender);
+            if(pub==null || sender.equals(selfId)) return;
+            byte[] envelope=Base64.getDecoder().decode(o.get("ciphertext").getAsString());
+            SecretKeySpec key=PresenceCrypto.deriveMessageKey(identity.getPrivate(),pub,sharedContext(sender,selfId));
+            byte[] plain=PresenceCrypto.decrypt(key,envelope,(sender+"|"+selfId).getBytes(StandardCharsets.UTF_8));
+            try(DataInputStream in=new DataInputStream(new ByteArrayInputStream(plain))) {
+                long timestamp=in.readLong(); String name=in.readUTF(); String build=in.readUTF();
+                if(timestamp<=0 || name.isBlank() || name.length()>16 || (!build.equals("121")&&!build.equals("146"))) return;
+                LastSeen seen=new LastSeen(name,timestamp,build);
+                HISTORY.put(sender,seen); LAST_PACKET_RECEIVED.put(sender,System.currentTimeMillis());
+                client.execute(()->AuctionScreen.updateModPlayer(sender.toString(),name,true));
             }
-        } catch (Exception ignored) {
-            // Authentication failure, malformed record, or key mismatch: never display it.
-        }
+        } catch(Exception ignored) {}
     }
-
-    private static String sharedContext(UUID first, UUID second) {
-        String a = first.toString();
-        String b = second.toString();
-        return "presence-v1|" + (a.compareTo(b) <= 0 ? a + "|" + b : b + "|" + a);
+    private static String sharedContext(UUID a,UUID b) {
+        String x=a.toString(),y=b.toString();
+        return "presence-v1|"+(x.compareTo(y)<=0?x+"|"+y:y+"|"+x);
     }
-
+    private static CompletableFuture<String> get(String path) {
+        HttpRequest req=HttpRequest.newBuilder(URI.create(BASE+path)).timeout(java.time.Duration.ofSeconds(12)).GET().build();
+        return HTTP.sendAsync(req,HttpResponse.BodyHandlers.ofString()).thenApply(r->{if(r.statusCode()!=200) throw new CompletionException(new IOException("HTTP "+r.statusCode())); return r.body();});
+    }
+    private static void post(String path,JsonObject json) {
+        HttpRequest req=HttpRequest.newBuilder(URI.create(BASE+path)).timeout(java.time.Duration.ofSeconds(12))
+            .header("Content-Type","application/json").POST(HttpRequest.BodyPublishers.ofString(json.toString())).build();
+        HTTP.sendAsync(req,HttpResponse.BodyHandlers.discarding());
+    }
     private static void expireStalePlayers() {
-        long now = System.currentTimeMillis();
-        for (Map.Entry<UUID, Long> entry : LAST_PACKET_RECEIVED.entrySet()) {
-            if (now - entry.getValue() > 15_000L) {
-                LastSeen seen = HISTORY.get(entry.getKey());
-                if (seen != null) AuctionScreen.updateModPlayer(entry.getKey().toString(), seen.name(), false);
-            }
-        }
+        long now=System.currentTimeMillis();
+        LAST_PACKET_RECEIVED.forEach((id,last)->{if(now-last>15000){LastSeen s=HISTORY.get(id);if(s!=null) AuctionScreen.updateModPlayer(id.toString(),s.name(),false);}});
     }
-
     public static void sendLastOnline(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
-        if (HISTORY.isEmpty()) {
-            source.sendFeedback(Component.literal("Noch keine entschlüsselten Präsenzdaten vorhanden."));
-            return;
-        }
-        source.sendFeedback(Component.literal("Letzte Online-Zeiten (nur lokal entschlüsselt):"));
-        HISTORY.entrySet().stream()
-                .filter(entry -> "146".equals(entry.getValue().build()))
-                .sorted(Map.Entry.<UUID, LastSeen>comparingByValue(Comparator.comparingLong(LastSeen::timestamp).reversed()))
-                .forEach(entry -> source.sendFeedback(Component.literal(
-                        entry.getValue().name() + " – " + java.time.format.DateTimeFormatter
-                                .ofPattern("dd.MM.yyyy HH:mm:ss")
-                                .withZone(java.time.ZoneId.systemDefault())
-                                .format(java.time.Instant.ofEpochMilli(entry.getValue().timestamp())))));
+        var entries=HISTORY.entrySet().stream().filter(e->"146".equals(e.getValue().build()))
+            .sorted(Map.Entry.<UUID,LastSeen>comparingByValue(Comparator.comparingLong(LastSeen::timestamp).reversed())).toList();
+        if(entries.isEmpty()){source.sendFeedback(Component.literal("Noch keine entschlüsselten Präsenzdaten vorhanden."));return;}
+        source.sendFeedback(Component.literal("Letzte Online-Zeiten (lokal entschlüsselt):"));
+        for(var e:entries) source.sendFeedback(Component.literal(e.getValue().name()+" – "+
+            java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss").withZone(java.time.ZoneId.systemDefault())
+            .format(java.time.Instant.ofEpochMilli(e.getValue().timestamp()))));
     }
-
-    public static void onDisconnect() {
-        identity = null;
-        selfId = null;
-        PEERS.clear();
-        HISTORY.clear();
-        LAST_PACKET_RECEIVED.clear();
-        PENDING.clear();
-        heartbeatTicks = 0;
+    public static void onDisconnect(){selfId=null;identity=null;PEERS.clear();LAST_PACKET_RECEIVED.clear();ticks=0;}
+    private record LastSeen(String name,long timestamp,String build){}
+    private static final class JsonObjectBuilder {
+        private final JsonObject o=new JsonObject();
+        JsonObjectBuilder put(String k,String v){o.addProperty(k,v);return this;}
+        JsonObject json(){return o;}
     }
-
-    private record LastSeen(String name, long timestamp, String build) {}
 }
