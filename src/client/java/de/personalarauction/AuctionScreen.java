@@ -498,7 +498,6 @@ public class AuctionScreen extends Screen {
         }
         updateEndButton();
         super.extractRenderState(graphics, mouseX, mouseY, delta);
-        graphics.pose().popMatrix();
     }
 
     @Override
