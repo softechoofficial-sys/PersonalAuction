@@ -1,12 +1,3 @@
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.guardsquare:proguard-gradle:7.8.2'
-    }
-}
-
 plugins {
     id 'net.fabricmc.fabric-loom' version '1.17.21'
 }
@@ -35,12 +26,4 @@ processResources {
 java {
     toolchain { languageVersion = JavaLanguageVersion.of(25) }
     withSourcesJar()
-}
-
-// Minecraft 26.1+ uses non-remapping Loom; obfuscate the regular production JAR.
-tasks.register('obfuscateModJar', proguard.gradle.ProGuardTask) {
-    dependsOn tasks.named('jar')
-    injars(tasks.named('jar').flatMap { it.archiveFile })
-    outjars(layout.buildDirectory.file("libs/${archives_base_name}-${version}-obfuscated.jar"))
-    configuration file('proguard-rules.pro')
 }
