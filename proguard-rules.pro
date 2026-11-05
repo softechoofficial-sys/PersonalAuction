@@ -9,3 +9,5 @@
 -dontshrink
 -dontoptimize
 -dontwarn **
+
+# Build verification: keep application bytecode verifier-safe.
