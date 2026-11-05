@@ -5,7 +5,6 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 
 import java.util.HashMap;
@@ -15,7 +14,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitializer {
-    private static int presenceHeartbeatTicks;
     // Nur diese vollständige Server-Systemmeldung zählt als Zahlung.
     private static final Pattern CASH_PAYMENT_MESSAGE =
             Pattern.compile("^([A-Za-z0-9_]{1,16}) hat dir \\$([0-9]+(?:[.,][0-9]+)?[kKmMbBtT]?) gezahlt$", Pattern.CASE_INSENSITIVE);
@@ -32,30 +30,15 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
         return previous != null && now - previous < DUPLICATE_WINDOW_NANOS;
     }
 
-    private static void sendPresence(Minecraft client) {
-        if (client.player == null || !ClientPlayNetworking.canSend(PlayerPresencePayload.TYPE)) return;
-        ClientPlayNetworking.send(new PlayerPresencePayload(
-                client.player.getUUID().toString(), client.getUser().getName(), true));
-    }
-
     @Override
     public void onInitializeClient() {
-        ClientPlayNetworking.registerGlobalReceiver(PlayerPresencePayload.TYPE, (payload, context) ->
-                context.client().execute(() -> AuctionScreen.updateModPlayer(
-                        payload.playerId(), payload.playerName(), payload.online())));
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (client.player != null && ++presenceHeartbeatTicks >= 100) {
-                presenceHeartbeatTicks = 0;
-                sendPresence(client);
-            }
-        });
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-            presenceHeartbeatTicks = 0;
-            sendPresence(client);
-        });
+        PresenceProtocolClient.initialize();
+        ClientTickEvents.END_CLIENT_TICK.register(PresenceProtocolClient::tick);
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
+                PresenceProtocolClient.onJoin(client));
         ClientTickEvents.END_CLIENT_TICK.register(client -> AuctionScreen.tickAuction());
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-            presenceHeartbeatTicks = 0;
+            PresenceProtocolClient.onDisconnect();
             AuctionScreen.resetForServerDisconnect();
             synchronized (PersonalAuctionClient.class) {
                 RECENT_PAYMENT_MESSAGES.clear();
@@ -74,12 +57,18 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
             }
         });
 
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher, buildContext) ->
-                dispatcher.register(ClientCommands.literal("auction")
-                        .executes(context -> {
-                            Minecraft.getInstance().execute(() ->
-                                    Minecraft.getInstance().setScreenAndShow(new AuctionScreen()));
-                            return 1;
-                        })));
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, buildContext) -> {
+            dispatcher.register(ClientCommands.literal("auction")
+                    .executes(context -> {
+                        Minecraft.getInstance().execute(() ->
+                                Minecraft.getInstance().setScreenAndShow(new AuctionScreen()));
+                        return 1;
+                    }));
+            dispatcher.register(ClientCommands.literal("online-last")
+                    .executes(context -> {
+                        PresenceProtocolClient.sendLastOnline(context.getSource());
+                        return 1;
+                    }));
+        });
     }
 }
