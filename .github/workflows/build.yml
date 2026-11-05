@@ -2,7 +2,7 @@ name: Build PersonalAuction
 
 on:
   push:
-    branches: [ main, "fix/**" ]
+    branches: [ main, "fix/**", "feature/external-relay-build121", "feature/external-relay-build146" ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
