@@ -78,26 +78,13 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
         });
     }
 
-    private static void sendPresence(Minecraft client) {
-        if (client.player == null || !ClientPlayNetworking.canSend(PlayerPresencePayload.TYPE)) return;
-        ClientPlayNetworking.send(new PlayerPresencePayload(
-                client.player.getUUID().toString(), client.getUser().getName(), true));
-    }
-
     @Override
     public void onInitializeClient() {
-        ClientPlayNetworking.registerGlobalReceiver(PlayerPresencePayload.TYPE, (payload, context) ->
-                context.client().execute(() -> AuctionScreen.updateModPlayer(
-                        payload.playerId(), payload.playerName(), payload.online())));
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (client.player != null && ++presenceHeartbeatTicks >= 100) {
-                presenceHeartbeatTicks = 0;
-                sendPresence(client);
-            }
-        });
+        PresenceProtocolClient.initialize();
+        ClientTickEvents.END_CLIENT_TICK.register(PresenceProtocolClient::tick);
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             presenceHeartbeatTicks = 0;
-            sendPresence(client);
+            PresenceProtocolClient.onJoin(client);
         });
         KeyMapping.Category keyCategory = KeyMapping.Category.register(
                 Identifier.fromNamespaceAndPath("personalauction", "controls"));
@@ -118,6 +105,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             presenceHeartbeatTicks = 0;
+            PresenceProtocolClient.onDisconnect();
             AuctionScreen.resetForServerDisconnect();
             synchronized (PersonalAuctionClient.class) {
                 RECENT_PAYMENT_MESSAGES.clear();
