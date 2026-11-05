@@ -6,6 +6,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -539,19 +540,27 @@ public class AuctionScreen extends Screen {
         return center + (y - (center - 8.0)) / 0.9;
     }
 
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        return super.mouseClicked(contentMouseX(mouseX), contentMouseY(mouseY), button);
+    private MouseButtonEvent transformMouseEvent(MouseButtonEvent event) {
+        return new MouseButtonEvent(
+                contentMouseX(event.x()),
+                contentMouseY(event.y()),
+                event.button()
+        );
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        return super.mouseReleased(contentMouseX(mouseX), contentMouseY(mouseY), button);
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        return super.mouseClicked(transformMouseEvent(event), doubleClick);
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        return super.mouseDragged(contentMouseX(mouseX), contentMouseY(mouseY), button, dragX / 0.9, dragY / 0.9);
+    public boolean mouseReleased(MouseButtonEvent event) {
+        return super.mouseReleased(transformMouseEvent(event));
+    }
+
+    @Override
+    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+        return super.mouseDragged(transformMouseEvent(event), dragX / 0.9, dragY / 0.9);
     }
 
     @Override
