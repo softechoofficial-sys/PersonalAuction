@@ -278,7 +278,8 @@ public class AuctionScreen extends Screen {
             graphics.pose().translate(x + (30.0f - textWidth) / 2.0f, y + (30.0f - textHeight) / 2.0f);
             graphics.pose().scale(scale, scale);
             graphics.text(this.font, "?", 0, 0, 0xFFB8E2FF, true);
-                return;
+            graphics.pose().popMatrix();
+            return;
         }
         graphics.pose().pushMatrix();
         graphics.pose().translate(x + 3, y + 3);
