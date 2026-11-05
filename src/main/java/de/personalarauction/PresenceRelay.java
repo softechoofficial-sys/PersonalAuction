@@ -1,6 +1,7 @@
 package de.personalarauction;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -44,6 +45,8 @@ public final class PresenceRelay implements ModInitializer {
             }
         });
 
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> PLAYERS.clear());
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> PLAYERS.clear());
         ServerTickEvents.END_SERVER_TICK.register(PresenceRelay::removeTimedOutPlayers);
     }
 
