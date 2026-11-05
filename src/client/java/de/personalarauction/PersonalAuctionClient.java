@@ -19,7 +19,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitializer {
-    private static KeyMapping OPEN_AUCTION_ZERO_KEY;
     private static KeyMapping OPEN_AUCTION_P_KEY;
     // Minecraft 26.2 verwendet fabric-key-mapping-api-v1 für Hotkeys.
     // Nur diese vollständige Server-Systemmeldung zählt als Zahlung.
@@ -84,18 +83,14 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                 PresenceProtocolClient.onJoin(client));
         KeyMapping.Category keyCategory = KeyMapping.Category.register(
                 Identifier.fromNamespaceAndPath("personalauction", "controls"));
-        OPEN_AUCTION_ZERO_KEY = KeyMappingHelper.registerKeyMapping(
-                new KeyMapping("key.personalauction.open_auction_zero", InputConstants.Type.KEYSYM,
-                        InputConstants.KEY_0, keyCategory));
         // P öffnet das Fenster; Shift+P wird von derselben Tastenbelegung erkannt.
         OPEN_AUCTION_P_KEY = KeyMappingHelper.registerKeyMapping(
                 new KeyMapping("key.personalauction.open_auction_p", InputConstants.Type.KEYSYM,
                         InputConstants.KEY_P, keyCategory));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             AuctionScreen.tickAuction();
-            boolean openWithZero = OPEN_AUCTION_ZERO_KEY.consumeClick();
             boolean openWithP = OPEN_AUCTION_P_KEY.consumeClick();
-            if ((openWithZero || openWithP) && client.player != null) {
+            if (openWithP && client.player != null) {
                 client.setScreenAndShow(new AuctionScreen());
             }
         });
