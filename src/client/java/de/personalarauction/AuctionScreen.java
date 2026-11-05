@@ -25,6 +25,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.Comparator;
 import java.util.Properties;
+import java.util.UUID;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.regex.Matcher;
@@ -50,6 +51,7 @@ public class AuctionScreen extends Screen {
     private static String lastResult = "";
     private static final Map<String, Long> paymentTotals = new LinkedHashMap<>();
     private static final Map<String, Long> latePaymentTotals = new LinkedHashMap<>();
+    private static final Map<UUID, String> modPlayers = new LinkedHashMap<>();
     private int paymentScroll = 0;
     private static Path saveFile;
 
@@ -155,7 +157,22 @@ public class AuctionScreen extends Screen {
         activeStartingPriceDisplay = "";
     }
 
+    public static void updateModPlayer(String playerId, String playerName, boolean online) {
+        try {
+            UUID id = UUID.fromString(playerId);
+            Minecraft client = Minecraft.getInstance();
+            if (client.player != null && id.equals(client.player.getUUID())) return;
+            if (online && playerName != null && !playerName.isBlank()) {
+                modPlayers.put(id, playerName);
+            } else {
+                modPlayers.remove(id);
+            }
+        } catch (IllegalArgumentException ignored) {
+        }
+    }
+
     public static void resetForServerDisconnect() {
+        modPlayers.clear();
         clearActiveAuction();
         lastResult = "";
         paymentTotals.clear();
@@ -485,6 +502,10 @@ public class AuctionScreen extends Screen {
             graphics.text(this.font, "Mausrad: Liste scrollen (" + totalRows + " Zahlungen)",
                     left + 224, bottom - 18, 0xFF8795A7, true);
         }
+        String modUserLabel = modPlayers.isEmpty()
+                ? "MOD-NUTZER: keine"
+                : "MOD-NUTZER: " + String.join(", ", modPlayers.values());
+        graphics.text(this.font, fitText(modUserLabel, 190), left + 224, bottom - 31, 0xFF91A9C5, true);
         if (!errorMessage.isEmpty()) {
             graphics.text(this.font, fitText(errorMessage, 180), left + 16, bottom - 16, 0xFFFFB86B, true);
         }
