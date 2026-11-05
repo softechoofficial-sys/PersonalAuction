@@ -51,8 +51,8 @@ public final class PresenceProtocolClient {
             String encoded = Base64.getEncoder().encodeToString(identity.getPublic().getEncoded());
             ClientPlayNetworking.send(new PresenceKeyPayload(selfId.toString(), encoded));
         } catch (Exception exception) {
-            client.player.displayClientMessage(Component.literal(
-                    "PersonalAuction: Präsenz-Schlüssel konnte nicht geladen werden."), false);
+            System.err.println("[PersonalAuction] Präsenz-Schlüssel konnte nicht geladen werden: "
+                    + exception.getMessage());
         }
     }
 
