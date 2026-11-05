@@ -1,30 +1,12 @@
-# Keep Fabric entrypoints stable; Fabric loads these exact classes from fabric.mod.json.
--keep class de.personalarauction.PresenceRelay {
-    public <init>();
-    public void onInitialize();
-}
+# Keep every PersonalAuction class and member unchanged.
+# ProGuard's member/exception type rewriting caused VerifyError on Java 25.
+-keep class de.personalarauction.** { *; }
 
-# Keep the Fabric client entrypoint stable; Fabric loads this exact class from fabric.mod.json.
--keep class de.personalarauction.PersonalAuctionClient {
-    public <init>();
-    public void onInitializeClient();
-}
+# Keep Fabric entrypoint metadata and Java runtime metadata.
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod,SourceFile,StackMapTable
 
-# Preserve metadata required by Fabric, Java annotations and generic signatures.
--keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
-
-# Rename and repackage implementation classes/members to make static inspection harder.
--repackageclasses 'x'
--allowaccessmodification
--useuniqueclassmembernames
-
-# Remove source/debug metadata from the distributable JAR.
--renamesourcefileattribute Source
--keepattributes SourceFile
-# Do not preserve line numbers, local variable names or method parameter names.
-
-# Names only: do not shrink or optimize, minimizing behavior changes.
+# Strip optional debug metadata only. Do not shrink, optimize, or repackage classes.
 -dontshrink
 -dontoptimize
+-dontpreverify
 -dontwarn **
--dontusemixedcaseclassnames
