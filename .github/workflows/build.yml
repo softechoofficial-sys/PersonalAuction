@@ -35,3 +35,5 @@ jobs:
           name: PersonalAuction
           path: build/libs/personalauction-*.jar
           if-no-files-found: error
+
+# Build without ProGuard to preserve valid Fabric bytecode.
