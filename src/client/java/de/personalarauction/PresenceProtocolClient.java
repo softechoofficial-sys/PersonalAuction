@@ -20,6 +20,7 @@ import java.util.UUID;
 
 /** Client-only encrypted presence exchange and locally decrypted last-seen cache. */
 public final class PresenceProtocolClient {
+    private static final String CLIENT_BUILD = "121";
     private static final Map<UUID, PublicKey> PEERS = new HashMap<>();
     private static final Map<UUID, LastSeen> HISTORY = new HashMap<>();
     private static final Map<UUID, Long> LAST_PACKET_RECEIVED = new HashMap<>();
@@ -69,6 +70,7 @@ public final class PresenceProtocolClient {
             try (DataOutputStream output = new DataOutputStream(bytes)) {
                 output.writeLong(now);
                 output.writeUTF(client.getUser().getName());
+                output.writeUTF(CLIENT_BUILD);
             }
             plaintext = bytes.toByteArray();
         } catch (Exception impossible) {
@@ -138,8 +140,10 @@ public final class PresenceProtocolClient {
             try (DataInputStream input = new DataInputStream(new ByteArrayInputStream(plaintext))) {
                 long timestamp = input.readLong();
                 String name = input.readUTF();
-                if (timestamp <= 0 || name.isBlank() || name.length() > 16 || input.available() != 0) return;
-                HISTORY.put(sender, new LastSeen(name, timestamp));
+                String build = input.readUTF();
+                if (timestamp <= 0 || name.isBlank() || name.length() > 16
+                        || (!"121".equals(build) && !"146".equals(build)) || input.available() != 0) return;
+                HISTORY.put(sender, new LastSeen(name, timestamp, build));
                 LAST_PACKET_RECEIVED.put(sender, System.currentTimeMillis());
                 PENDING.remove(sender.toString());
                 AuctionScreen.updateModPlayer(sender.toString(), name, true);
@@ -172,6 +176,7 @@ public final class PresenceProtocolClient {
         }
         source.sendFeedback(Component.literal("Letzte Online-Zeiten (nur lokal entschlüsselt):"));
         HISTORY.entrySet().stream()
+                .filter(entry -> "146".equals(entry.getValue().build()))
                 .sorted(Map.Entry.<UUID, LastSeen>comparingByValue(Comparator.comparingLong(LastSeen::timestamp).reversed()))
                 .forEach(entry -> source.sendFeedback(Component.literal(
                         entry.getValue().name() + " – " + java.time.format.DateTimeFormatter
@@ -190,5 +195,5 @@ public final class PresenceProtocolClient {
         heartbeatTicks = 0;
     }
 
-    private record LastSeen(String name, long timestamp) {}
+    private record LastSeen(String name, long timestamp, String build) {}
 }
