@@ -4,19 +4,10 @@
   "version": "${version}",
   "name": "PersonalAuction",
   "description": "Lokale persönliche Stream-Auktion mit GUI und Chat-Zahlungserkennung.",
-  "authors": [
-    "PersonalAuction"
-  ],
+  "authors": ["PersonalAuction"],
   "license": "MIT",
-  "environment": "*",
-  "entrypoints": {
-    "main": [
-      "de.personalarauction.PresenceRelay"
-    ],
-    "client": [
-      "de.personalarauction.PersonalAuctionClient"
-    ]
-  },
+  "environment": "client",
+  "entrypoints": { "client": ["de.personalarauction.PersonalAuctionClient"] },
   "depends": {
     "fabricloader": ">=0.19.3",
     "minecraft": "26.2",
