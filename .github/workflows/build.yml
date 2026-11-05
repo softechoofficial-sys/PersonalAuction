@@ -26,11 +26,12 @@ jobs:
           gradle-version: '9.5.1'
 
       - name: Build Mod
-        run: gradle build obfuscateModJar --no-daemon
+        run: gradle build --no-daemon
 
       - name: Upload JAR
         uses: actions/upload-artifact@v4
         if: success()
         with:
           name: PersonalAuction
-          path: build/libs/*-obfuscated.jar
+          path: build/libs/personalauction-*.jar
+          if-no-files-found: error
