@@ -3,10 +3,9 @@
 -keep class de.personalarauction.** { *; }
 
 # Keep Fabric entrypoint metadata and Java runtime metadata.
--keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod,SourceFile,StackMapTable
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod,SourceFile
 
 # Strip optional debug metadata only. Do not shrink, optimize, or repackage classes.
 -dontshrink
 -dontoptimize
--dontpreverify
 -dontwarn **
