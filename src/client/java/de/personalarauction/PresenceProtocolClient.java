@@ -18,7 +18,6 @@ public final class PresenceProtocolClient {
     private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(8)).build();
     private static final Map<UUID, PublicKey> PEERS = new ConcurrentHashMap<>();
     private static final Map<UUID, LastSeen> HISTORY = new ConcurrentHashMap<>();
-    private static final Map<UUID, Long> LAST_PACKET_RECEIVED = new ConcurrentHashMap<>();
     private static KeyPair identity;
     private static UUID selfId;
     private static int ticks;
@@ -26,7 +25,7 @@ public final class PresenceProtocolClient {
     public static void initialize() {}
 
     public static void onJoin(Minecraft client) {
-        ticks=0; PEERS.clear(); LAST_PACKET_RECEIVED.clear();
+        ticks=0; PEERS.clear();
         if (client.player == null) return;
         try {
             identity=PresenceIdentityStore.loadOrCreate();
@@ -41,7 +40,7 @@ public final class PresenceProtocolClient {
 
     public static void tick(Minecraft client) {
         if(client.player==null || identity==null || selfId==null) return;
-        if(++ticks<100) { expireStalePlayers(); return; }
+        if(++ticks<100) return;
         ticks=0;
         try {
             long now=System.currentTimeMillis();
@@ -72,7 +71,6 @@ public final class PresenceProtocolClient {
         } catch(Exception e) {
             System.err.println("[PersonalAuction] Relay-Abgleich fehlgeschlagen: "+e.getMessage());
         }
-        expireStalePlayers();
     }
 
     private static void poll(Minecraft client) {
@@ -107,8 +105,7 @@ public final class PresenceProtocolClient {
                 long timestamp=in.readLong(); String name=in.readUTF(); String build=in.readUTF();
                 if(timestamp<=0 || name.isBlank() || name.length()>16 || (!build.equals("121")&&!build.equals("146"))) return;
                 LastSeen seen=new LastSeen(name,timestamp,build);
-                HISTORY.put(sender,seen); LAST_PACKET_RECEIVED.put(sender,System.currentTimeMillis());
-                client.execute(()->AuctionScreen.updateModPlayer(sender.toString(),name,true));
+                HISTORY.put(sender,seen);
             }
         } catch(Exception ignored) {}
     }
@@ -125,10 +122,6 @@ public final class PresenceProtocolClient {
             .header("Content-Type","application/json").POST(HttpRequest.BodyPublishers.ofString(json.toString())).build();
         HTTP.sendAsync(req,HttpResponse.BodyHandlers.discarding());
     }
-    private static void expireStalePlayers() {
-        long now=System.currentTimeMillis();
-        LAST_PACKET_RECEIVED.forEach((id,last)->{if(now-last>15000){LastSeen s=HISTORY.get(id);if(s!=null) AuctionScreen.updateModPlayer(id.toString(),s.name(),false);}});
-    }
     public static void sendLastOnline(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
         var entries=HISTORY.entrySet().stream().filter(e->"146".equals(e.getValue().build()))
             .sorted(Map.Entry.<UUID,LastSeen>comparingByValue(Comparator.comparingLong(LastSeen::timestamp).reversed())).toList();
@@ -138,7 +131,7 @@ public final class PresenceProtocolClient {
             java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss").withZone(java.time.ZoneId.systemDefault())
             .format(java.time.Instant.ofEpochMilli(e.getValue().timestamp()))));
     }
-    public static void onDisconnect(){selfId=null;identity=null;PEERS.clear();LAST_PACKET_RECEIVED.clear();ticks=0;}
+    public static void onDisconnect(){selfId=null;identity=null;PEERS.clear();ticks=0;}
     private record LastSeen(String name,long timestamp,String build){}
     private static final class JsonObjectBuilder {
         private final JsonObject o=new JsonObject();
