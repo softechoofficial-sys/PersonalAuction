@@ -6,11 +6,8 @@
   "description": "Lokale persönliche Stream-Auktion mit GUI und Chat-Zahlungserkennung.",
   "authors": ["PersonalAuction"],
   "license": "MIT",
-  "environment": "*",
+  "environment": "client",
   "entrypoints": {
-    "main": [
-      "de.personalarauction.PresenceRelay"
-    ],
     "client": ["de.personalarauction.PersonalAuctionClient"]
   },
   "depends": {
