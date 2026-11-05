@@ -26,6 +26,5 @@
 # Names only: do not shrink or optimize, minimizing behavior changes.
 -dontshrink
 -dontoptimize
--dontpreverify
 -dontwarn **
 -dontusemixedcaseclassnames
