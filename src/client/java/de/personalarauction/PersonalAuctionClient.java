@@ -22,8 +22,7 @@ import java.util.regex.Pattern;
 public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitializer {
     private static int presenceHeartbeatTicks;
     private static KeyMapping OPEN_AUCTION_KEY;
-    private static KeyMapping OPEN_AUCTION_ZERO_KEY;
-    // Minecraft 26.2 verwendet fabric-key-mapping-api-v1 für Hotkeys.
+        // Minecraft 26.2 verwendet fabric-key-mapping-api-v1 für Hotkeys.
     // Nur diese vollständige Server-Systemmeldung zählt als Zahlung.
     private static final Pattern CASH_PAYMENT_MESSAGE =
             Pattern.compile("^([A-Za-z0-9_]{1,16}) hat dir \\$([0-9]+(?:[.,][0-9]+)?[kKmMbBtT]?) gezahlt$", Pattern.CASE_INSENSITIVE);
@@ -90,16 +89,11 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                 Identifier.fromNamespaceAndPath("personalauction", "controls"));
         OPEN_AUCTION_KEY = KeyMappingHelper.registerKeyMapping(
                 new KeyMapping("key.personalauction.open_auction", InputConstants.Type.KEYSYM,
-                        InputConstants.KEY_O, keyCategory));
-        // Zusätzlicher Fallback: auch die Zifferntaste 0 öffnet das Fenster.
-        OPEN_AUCTION_ZERO_KEY = KeyMappingHelper.registerKeyMapping(
-                new KeyMapping("key.personalauction.open_auction_zero", InputConstants.Type.KEYSYM,
-                        InputConstants.KEY_0, keyCategory));
+                        InputConstants.KEY_P, keyCategory));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             AuctionScreen.tickAuction();
-            boolean openWithO = OPEN_AUCTION_KEY.consumeClick();
-            boolean openWithZero = OPEN_AUCTION_ZERO_KEY.consumeClick();
-            if ((openWithO || openWithZero) && client.player != null) {
+            boolean openWithP = OPEN_AUCTION_KEY.consumeClick();
+            if (openWithP && client.player != null) {
                 client.setScreenAndShow(new AuctionScreen());
             }
         });
