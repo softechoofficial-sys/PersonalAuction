@@ -62,17 +62,18 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
             }
         });
 
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher, buildContext) ->
-                dispatcher.register(ClientCommands.literal("auction")
-                        .executes(context -> {
-                            Minecraft.getInstance().execute(() ->
-                                    Minecraft.getInstance().setScreenAndShow(new AuctionScreen()));
-                            return 1;
-                        })));
-        dispatcher.register(ClientCommands.literal("online-last")
-                .executes(context -> {
-                    PresenceProtocolClient.sendLastOnline(context.getSource());
-                    return 1;
-                }));
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, buildContext) -> {
+            dispatcher.register(ClientCommands.literal("auction")
+                    .executes(context -> {
+                        Minecraft.getInstance().execute(() ->
+                                Minecraft.getInstance().setScreenAndShow(new AuctionScreen()));
+                        return 1;
+                    }));
+            dispatcher.register(ClientCommands.literal("online-last")
+                    .executes(context -> {
+                        PresenceProtocolClient.sendLastOnline(context.getSource());
+                        return 1;
+                    }));
+        });
     }
 }
