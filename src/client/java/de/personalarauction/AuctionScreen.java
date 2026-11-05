@@ -306,28 +306,28 @@ public class AuctionScreen extends Screen {
 
     @Override
     protected void init() {
-        int left = this.width / 2 - 190;
-        int top = this.height / 2 - 117;
+        int left = this.width / 2 - 210;
+        int top = this.height / 2 - 125;
         itemPickerButton = Button.builder(getSelectedItemLabel(), button -> openItemPicker())
-                .bounds(left + 14, top + 92, 171, 18).build();
+                .bounds(left + 14, top + 92, 190, 20).build();
         addRenderableWidget(itemPickerButton);
         updateItemPickerButton();
 
-        minPriceField = new EditBox(this.font, left + 14, top + 138, 171, 18, Component.literal("Startpreis"));
+        minPriceField = new EditBox(this.font, left + 14, top + 138, 190, 20, Component.literal("Startpreis"));
         minPriceField.setMaxLength(12);
         minPriceField.setHint(Component.empty());
         addRenderableWidget(minPriceField);
 
-        durationField = new EditBox(this.font, left + 14, top + 173, 171, 18, Component.literal("Dauer"));
+        durationField = new EditBox(this.font, left + 14, top + 173, 190, 20, Component.literal("Dauer"));
         durationField.setMaxLength(5);
         durationField.setHint(Component.empty());
         addRenderableWidget(durationField);
 
         startAuctionButton = Button.builder(Component.literal("Auktion starten"), button -> startAuction())
-                .bounds(left + 11, top + 219, 86, 18).build();
+                .bounds(left + 11, top + 219, 96, 20).build();
         addRenderableWidget(startAuctionButton);
         endAuctionButton = Button.builder(Component.literal("Auktion beenden"), button -> endAuction())
-                .bounds(left + 101, top + 219, 86, 18).build();
+                .bounds(left + 101, top + 219, 96, 20).build();
         addRenderableWidget(endAuctionButton);
         updateEndButton();
     }
@@ -419,10 +419,19 @@ public class AuctionScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+        // Uniformly scale the complete auction window (background, text and widgets)
+        // around the screen center, then move the whole composition slightly upward.
+        float centerX = this.width / 2.0f;
+        float centerY = this.height / 2.0f;
+        graphics.pose().pushMatrix();
+        graphics.pose().translate(centerX, centerY - 8.0f);
+        graphics.pose().scale(0.9f, 0.9f);
+        graphics.pose().translate(-centerX, -centerY);
+
         int left = this.width / 2 - 210;
         int top = this.height / 2 - 125;
-        int right = left + 378;
-        int bottom = top + 261;
+        int right = left + 420;
+        int bottom = top + 290;
 
         graphics.fill(left - 1, top - 1, right + 1, bottom + 1, 0xFF8FC9EE);
         graphics.fill(left, top, right, bottom, 0xF016202B);
@@ -518,10 +527,42 @@ public class AuctionScreen extends Screen {
         }
         updateEndButton();
         super.extractRenderState(graphics, mouseX, mouseY, delta);
+        graphics.pose().popMatrix();
+    }
+
+    private double contentMouseX(double x) {
+        return this.width / 2.0 + (x - this.width / 2.0) / 0.9;
+    }
+
+    private double contentMouseY(double y) {
+        double center = this.height / 2.0;
+        return center + (y - (center - 8.0)) / 0.9;
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        return super.mouseClicked(contentMouseX(mouseX), contentMouseY(mouseY), button);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        return super.mouseReleased(contentMouseX(mouseX), contentMouseY(mouseY), button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        return super.mouseDragged(contentMouseX(mouseX), contentMouseY(mouseY), button, dragX / 0.9, dragY / 0.9);
+    }
+
+    @Override
+    public void mouseMoved(double mouseX, double mouseY) {
+        super.mouseMoved(contentMouseX(mouseX), contentMouseY(mouseY));
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        mouseX = contentMouseX(mouseX);
+        mouseY = contentMouseY(mouseY);
         int left = this.width / 2 - 210;
         int top = this.height / 2 - 125;
         if (mouseX >= left + 194 && mouseX <= left + 374 && mouseY >= top + 104 && mouseY <= top + 221) {
