@@ -502,10 +502,6 @@ public class AuctionScreen extends Screen {
             graphics.text(this.font, "Mausrad: Liste scrollen (" + totalRows + " Zahlungen)",
                     left + 224, bottom - 18, 0xFF8795A7, true);
         }
-        String modUserLabel = modPlayers.isEmpty()
-                ? "MOD-NUTZER: keine"
-                : "MOD-NUTZER: " + String.join(", ", modPlayers.values());
-        graphics.text(this.font, fitText(modUserLabel, 190), left + 224, bottom - 31, 0xFF91A9C5, true);
         if (!errorMessage.isEmpty()) {
             graphics.text(this.font, fitText(errorMessage, 180), left + 16, bottom - 16, 0xFFFFB86B, true);
         }
