@@ -304,28 +304,28 @@ public class AuctionScreen extends Screen {
 
     @Override
     protected void init() {
-        int left = this.width / 2 - 210;
-        int top = this.height / 2 - 125;
+        int left = this.width / 2 - 190;
+        int top = this.height / 2 - 117;
         itemPickerButton = Button.builder(getSelectedItemLabel(), button -> openItemPicker())
-                .bounds(left + 16, top + 102, 190, 20).build();
+                .bounds(left + 14, top + 92, 171, 18).build();
         addRenderableWidget(itemPickerButton);
         updateItemPickerButton();
 
-        minPriceField = new EditBox(this.font, left + 16, top + 153, 190, 20, Component.literal("Startpreis"));
+        minPriceField = new EditBox(this.font, left + 14, top + 138, 171, 18, Component.literal("Startpreis"));
         minPriceField.setMaxLength(12);
         minPriceField.setHint(Component.empty());
         addRenderableWidget(minPriceField);
 
-        durationField = new EditBox(this.font, left + 16, top + 192, 190, 20, Component.literal("Dauer"));
+        durationField = new EditBox(this.font, left + 14, top + 173, 171, 18, Component.literal("Dauer"));
         durationField.setMaxLength(5);
         durationField.setHint(Component.empty());
         addRenderableWidget(durationField);
 
         startAuctionButton = Button.builder(Component.literal("Auktion starten"), button -> startAuction())
-                .bounds(left + 12, top + 243, 96, 20).build();
+                .bounds(left + 11, top + 219, 86, 18).build();
         addRenderableWidget(startAuctionButton);
         endAuctionButton = Button.builder(Component.literal("Auktion beenden"), button -> endAuction())
-                .bounds(left + 112, top + 243, 96, 20).build();
+                .bounds(left + 101, top + 219, 86, 18).build();
         addRenderableWidget(endAuctionButton);
         updateEndButton();
     }
@@ -419,58 +419,58 @@ public class AuctionScreen extends Screen {
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         int left = this.width / 2 - 210;
         int top = this.height / 2 - 125;
-        int right = left + 420;
-        int bottom = top + 290;
+        int right = left + 378;
+        int bottom = top + 261;
 
         graphics.fill(left - 1, top - 1, right + 1, bottom + 1, 0xFF8FC9EE);
         graphics.fill(left, top, right, bottom, 0xF016202B);
-        graphics.fill(left, top, right, top + 30, 0xFF304B63);
-        graphics.fill(left, top + 29, right, top + 30, 0xFF8FC9EE);
-        graphics.fill(left + 1, top + 31, left + 210, bottom - 1, 0xFF1B2936);
-        graphics.fill(left + 211, top + 31, right - 1, bottom - 1, 0xFF202F3D);
+        graphics.fill(left, top, right, top + 27, 0xFF304B63);
+        graphics.fill(left, top + 26, right, top + 27, 0xFF8FC9EE);
+        graphics.fill(left + 1, top + 28, left + 189, bottom - 1, 0xFF1B2936);
+        graphics.fill(left + 190, top + 28, right - 1, bottom - 1, 0xFF202F3D);
         String ownerName = Minecraft.getInstance().getUser().getName();
-        graphics.text(this.font, fitText(ownerName + " AUKTION", 300), left + 14, top + 11, 0xFFFFFFFF, true);
+        graphics.text(this.font, fitText(ownerName + " AUKTION", 300), left + 13, top + 10, 0xFFFFFFFF, true);
         graphics.text(this.font, hasActiveAuction() ? "LIVE" : "BEREIT",
-                right - 48, top + 11, hasActiveAuction() ? 0xFF65E6A5 : 0xFFB8C3D1, true);
+                right - 48, top + 10, hasActiveAuction() ? 0xFF65E6A5 : 0xFFB8C3D1, true);
 
-        int auctionTitleX = left + 20;
+        int auctionTitleX = left + 18;
         int auctionTitleWidth = this.font.width("AUKTION");
-        graphics.fill(auctionTitleX - 5, top + 40, auctionTitleX + auctionTitleWidth + 5, top + 56, 0xFF5BA9E6);
-        graphics.fill(auctionTitleX - 4, top + 41, auctionTitleX + auctionTitleWidth + 4, top + 55, 0xFF263F56);
-        graphics.text(this.font, "AUKTION", auctionTitleX, top + 43, 0xFFAEDFFF, true);
+        graphics.fill(auctionTitleX - 5, top + 36, auctionTitleX + auctionTitleWidth + 5, top + 50, 0xFF5BA9E6);
+        graphics.fill(auctionTitleX - 4, top + 37, auctionTitleX + auctionTitleWidth + 4, top + 50, 0xFF263F56);
+        graphics.text(this.font, "AUKTION", auctionTitleX, top + 39, 0xFFAEDFFF, true);
         if (hasActiveAuction()) {
-            drawItemSlot(graphics, activeItemStack, left + 18, top + 61);
-            graphics.text(this.font, fitText(activeItemName, 140), left + 62, top + 62, 0xFFFFFFFF, true);
+            drawItemSlot(graphics, activeItemStack, left + 16, top + 55);
+            graphics.text(this.font, fitText(activeItemName, 140), left + 56, top + 56, 0xFFFFFFFF, true);
             long seconds = auctionEndAt <= 0 ? 0 : Math.max(0, (auctionEndAt - System.currentTimeMillis()) / 1000);
             graphics.text(this.font, "Restzeit: " + (seconds / 60) + "m " + (seconds % 60) + "s",
-                    left + 62, top + 78, 0xFFB8C3D1, true);
+                    left + 56, top + 70, 0xFFB8C3D1, true);
             graphics.text(this.font, "Startpreis: $" + activeStartingPriceDisplay,
-                    left + 62, top + 90, 0xFF65E6A5, true);
+                    left + 56, top + 81, 0xFF65E6A5, true);
         } else {
             ItemStack selectedItem = hasSelectedItem ? selectedItemStack : null;
-            drawItemSlot(graphics, selectedItem, left + 18, top + 61);
+            drawItemSlot(graphics, selectedItem, left + 16, top + 55);
             if (selectedItem != null && !selectedItem.isEmpty()) {
-                graphics.text(this.font, "Ausgewähltes Item", left + 62, top + 62, 0xFF91A9C5, true);
+                graphics.text(this.font, "Ausgewähltes Item", left + 56, top + 56, 0xFF91A9C5, true);
                 graphics.text(this.font, fitText(selectedItem.getHoverName().getString(), 140),
-                        left + 62, top + 78, 0xFFFFFFFF, true);
+                        left + 56, top + 70, 0xFFFFFFFF, true);
             }
         }
 
-        graphics.fill(left + 14, top + 128, left + 206, top + 130, 0xFF58758F);
-        graphics.text(this.font, "Startpreis ($)", left + 16, top + 141, 0xFFB8C3D1, true);
-        graphics.text(this.font, "Dauer (Min)", left + 16, top + 180, 0xFFB8C3D1, true);
+        graphics.fill(left + 13, top + 115, left + 185, top + 117, 0xFF58758F);
+        graphics.text(this.font, "Startpreis ($)", left + 14, top + 127, 0xFFB8C3D1, true);
+        graphics.text(this.font, "Dauer (Min)", left + 14, top + 162, 0xFFB8C3D1, true);
 
-        int paymentsTitleX = left + 227;
+        int paymentsTitleX = left + 204;
         int paymentsTitleWidth = this.font.width("ZAHLUNGEN");
-        graphics.fill(paymentsTitleX - 5, top + 40, paymentsTitleX + paymentsTitleWidth + 5, top + 56, 0xFF5BA9E6);
-        graphics.fill(paymentsTitleX - 4, top + 41, paymentsTitleX + paymentsTitleWidth + 4, top + 55, 0xFF263F56);
-        graphics.text(this.font, "ZAHLUNGEN", paymentsTitleX, top + 43, 0xFFAEDFFF, true);
-        graphics.text(this.font, "GEWINNER", left + 224, top + 64, 0xFF91A9C5, true);
-        graphics.text(this.font, fitText(getCurrentWinner(), 180), left + 224, top + 78,
+        graphics.fill(paymentsTitleX - 5, top + 36, paymentsTitleX + paymentsTitleWidth + 5, top + 50, 0xFF5BA9E6);
+        graphics.fill(paymentsTitleX - 4, top + 37, paymentsTitleX + paymentsTitleWidth + 4, top + 50, 0xFF263F56);
+        graphics.text(this.font, "ZAHLUNGEN", paymentsTitleX, top + 39, 0xFFAEDFFF, true);
+        graphics.text(this.font, "GEWINNER", left + 202, top + 58, 0xFF91A9C5, true);
+        graphics.text(this.font, fitText(getCurrentWinner(), 180), left + 202, top + 70,
                 hasQualifiedWinner() ? 0xFF65E6A5 : 0xFF8795A7, true);
-        graphics.text(this.font, "Spieler", left + 224, top + 101, 0xFFB8C3D1, true);
-        graphics.text(this.font, "Gesamt", right - 68, top + 101, 0xFFB8C3D1, true);
-        graphics.fill(left + 222, top + 114, right - 14, top + 115, 0xFF3C5068);
+        graphics.text(this.font, "Spieler", left + 202, top + 91, 0xFFB8C3D1, true);
+        graphics.text(this.font, "Gesamt", right - 68, top + 91, 0xFFB8C3D1, true);
+        graphics.fill(left + 200, top + 103, right - 14, top + 104, 0xFF3C5068);
 
         List<Map.Entry<String, Long>> ranked = getRankedPayments();
         List<Map.Entry<String, Long>> latePayments = new ArrayList<>(latePaymentTotals.entrySet());
@@ -483,31 +483,31 @@ public class AuctionScreen extends Screen {
             Map.Entry<String, Long> entry = late
                     ? latePayments.get(row - ranked.size())
                     : ranked.get(row);
-            int rowY = top + 123 + (row - paymentScroll) * 15;
-            if (!late && row == 0) graphics.fill(left + 220, rowY - 3, right - 14, rowY + 12,
+            int rowY = top + 111 + (row - paymentScroll) * 15;
+            if (!late && row == 0) graphics.fill(left + 198, rowY - 3, right - 14, rowY + 12,
                     hasQualifiedWinner() ? 0xFF29483F : 0xFF542D32);
             String playerLabel = late
                     ? (ranked.size() + (row - ranked.size()) + 1) + ". " + entry.getKey() + " (nach Auktion)"
                     : (row + 1) + ". " + entry.getKey();
             int rowColor = late ? 0xFFFF6B6B
                     : (row == 0 ? (hasQualifiedWinner() ? 0xFF65E6A5 : 0xFFFF6B6B) : 0xFFE0E6ED);
-            graphics.text(this.font, fitText(playerLabel, 112), left + 224, rowY, rowColor, true);
+            graphics.text(this.font, fitText(playerLabel, 112), left + 202, rowY, rowColor, true);
             String total = fitText("$" + entry.getValue(), 66);
             graphics.text(this.font, total, right - 16 - this.font.width(total), rowY,
                     late ? 0xFFFF6B6B : 0xFFFFD479, true);
         }
         if (totalRows == 0) {
-            graphics.text(this.font, "...", left + 224, top + 126, 0xFF8795A7, true);
+            graphics.text(this.font, "...", left + 202, top + 113, 0xFF8795A7, true);
         } else if (totalRows > visibleRows) {
             graphics.text(this.font, "Mausrad: Liste scrollen (" + totalRows + " Zahlungen)",
-                    left + 224, bottom - 18, 0xFF8795A7, true);
+                    left + 202, bottom - 18, 0xFF8795A7, true);
         }
         String modUserLabel = modPlayers.isEmpty()
                 ? "MOD-NUTZER: keine"
                 : "MOD-NUTZER: " + String.join(", ", modPlayers.values());
-        graphics.text(this.font, fitText(modUserLabel, 190), left + 224, bottom - 31, 0xFF91A9C5, true);
+        graphics.text(this.font, fitText(modUserLabel, 190), left + 202, bottom - 31, 0xFF91A9C5, true);
         if (!errorMessage.isEmpty()) {
-            graphics.text(this.font, fitText(errorMessage, 180), left + 16, bottom - 16, 0xFFFFB86B, true);
+            graphics.text(this.font, fitText(errorMessage, 180), left + 14, bottom - 16, 0xFFFFB86B, true);
         }
         updateEndButton();
         super.extractRenderState(graphics, mouseX, mouseY, delta);
@@ -517,7 +517,7 @@ public class AuctionScreen extends Screen {
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
         int left = this.width / 2 - 210;
         int top = this.height / 2 - 125;
-        if (mouseX >= left + 215 && mouseX <= left + 415 && mouseY >= top + 116 && mouseY <= top + 245) {
+        if (mouseX >= left + 194 && mouseX <= left + 374 && mouseY >= top + 104 && mouseY <= top + 221) {
             int maxScroll = Math.max(0, getRankedPayments().size() + latePaymentTotals.size() - 8);
             paymentScroll = Math.max(0, Math.min(maxScroll, paymentScroll - (int) Math.signum(verticalAmount)));
             return true;
