@@ -544,7 +544,7 @@ public class AuctionScreen extends Screen {
         return new MouseButtonEvent(
                 contentMouseX(event.x()),
                 contentMouseY(event.y()),
-                event.button()
+                event.buttonInfo()
         );
     }
 
