@@ -1,3 +1,9 @@
+# Keep Fabric entrypoints stable; Fabric loads these exact classes from fabric.mod.json.
+-keep class de.personalarauction.PresenceRelay {
+    public <init>();
+    public void onInitialize();
+}
+
 # Keep the Fabric client entrypoint stable; Fabric loads this exact class from fabric.mod.json.
 -keep class de.personalarauction.PersonalAuctionClient {
     public <init>();
