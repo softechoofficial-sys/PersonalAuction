@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "personalauction",
   "version": "${version}",
-  "name": "PersonalAuction",
+  "name": "Auktion-Mod",
   "description": "Lokale persönliche Stream-Auktion mit GUI und Chat-Zahlungserkennung.",
   "authors": ["PersonalAuction"],
   "license": "MIT",
