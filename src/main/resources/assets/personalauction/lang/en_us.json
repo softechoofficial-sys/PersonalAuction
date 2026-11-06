@@ -1,6 +1,4 @@
 {
   "key.category.personalauction.controls": "PersonalAuction",
-  "key.personalauction.open_auction": "Open auction GUI"
-,
-  "key.personalauction.open_auction_zero": "Open auction GUI (0)"
+  "key.personalauction.open-auction-gui": "Open auction GUI"
 }
