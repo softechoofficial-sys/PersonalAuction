@@ -25,6 +25,7 @@ public final class PresenceProtocolClient {
     private static long lastActivity = System.currentTimeMillis();
     private static float lastYaw, lastPitch;
     private static boolean haveRotation;
+    private static net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource afkSource;
     private static final long ONLINE_TIMEOUT_MILLIS = 20_000L;
     private PresenceProtocolClient() {}
     public static void initialize() {}
@@ -48,7 +49,8 @@ public final class PresenceProtocolClient {
         if(client.player==null || identity==null || selfId==null) return;
         long currentTime=System.currentTimeMillis();
         if (CLIENT_BUILD.equals("146")) {
-            boolean moved = client.player.input.forwardImpulse != 0.0F || client.player.input.leftImpulse != 0.0F;
+            boolean moved = client.options.keyUp.isDown() || client.options.keyDown.isDown()
+                    || client.options.keyLeft.isDown() || client.options.keyRight.isDown();
             float yaw=client.player.getYRot(), pitch=client.player.getXRot();
             boolean looked = haveRotation && (Float.compare(yaw,lastYaw)!=0 || Float.compare(pitch,lastPitch)!=0);
             if (moved || looked) lastActivity=currentTime;
@@ -109,6 +111,7 @@ public final class PresenceProtocolClient {
 
     public static void requestAfkCheck(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
         long now=System.currentTimeMillis();
+        afkSource=source;
         Set<UUID> recipients=new HashSet<>();
         AFK_NAMES.clear();
         for(var entry:HISTORY.entrySet()) {
@@ -184,7 +187,7 @@ public final class PresenceProtocolClient {
                 } else if(CLIENT_BUILD.equals("121") && "AFK_STATUS".equals(type)) {
                     long activity=in.readLong(); String name=in.readUTF();
                     if(activity>0 && !name.isBlank() && name.length()<=16 && System.currentTimeMillis()-activity>=10_000L) {
-                        client.execute(() -> client.gui.getChat().addMessage(Component.literal(name+" ist AFK")));
+                        client.execute(() -> { if(afkSource!=null) afkSource.sendFeedback(Component.literal(name+" ist AFK")); });
                     }
                 }
             }
@@ -225,7 +228,7 @@ public final class PresenceProtocolClient {
             java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss").withZone(java.time.ZoneId.systemDefault())
             .format(java.time.Instant.ofEpochMilli(e.getValue().timestamp()))));
     }
-    public static void onDisconnect(){selfId=null;identity=null;PEERS.clear();HISTORY.clear();AFK_NAMES.clear();ticks=0;}
+    public static void onDisconnect(){selfId=null;identity=null;PEERS.clear();HISTORY.clear();AFK_NAMES.clear();afkSource=null;ticks=0;}
     private record LastSeen(String name,long timestamp,String build){}
     private static final class JsonObjectBuilder {
         private final JsonObject o=new JsonObject();
