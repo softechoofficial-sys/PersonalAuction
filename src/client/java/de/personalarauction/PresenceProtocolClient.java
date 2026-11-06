@@ -200,7 +200,7 @@ public final class PresenceProtocolClient {
                         try {
                             var pos = client.player.blockPosition();
                             String name = client.getUser().getName();
-                            String dimension = client.level.dimension().location().toString();
+                            String dimension = client.level.dimension().toString();
                             ByteArrayOutputStream response = new ByteArrayOutputStream();
                             try (DataOutputStream out = new DataOutputStream(response)) {
                                 out.writeUTF("PA1"); out.writeUTF("CORDS_RESPONSE");
