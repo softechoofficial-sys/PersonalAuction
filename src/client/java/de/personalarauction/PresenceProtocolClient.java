@@ -73,18 +73,9 @@ public final class PresenceProtocolClient {
             pollTicks=0;
             poll(client);
         }
-        if (++presenceTicks >= 100) {
+        if (++presenceTicks >= 200) {
             presenceTicks=0;
-            try {
-                ByteArrayOutputStream bytes=new ByteArrayOutputStream();
-                try(DataOutputStream out=new DataOutputStream(bytes)) {
-                    out.writeUTF("PA1"); out.writeUTF("PRESENCE");
-                    out.writeLong(currentTime); out.writeUTF(client.getUser().getName()); out.writeUTF(CLIENT_BUILD); out.writeUTF(currentServerId(client));
-                }
-                sendToPeers(bytes.toByteArray(), null);
-            } catch(Exception e) {
-                System.err.println("[PersonalAuction] Präsenzmeldung fehlgeschlagen: "+e.getMessage());
-            }
+            sendPresenceAndAfk(client);
         }
     }
 
