@@ -44,7 +44,7 @@ public final class PresenceProtocolClient {
         try (InputStream input = Files.newInputStream(LAST_ONLINE_FILE)) {
             properties.load(input);
             for (String key : properties.stringPropertyNames()) {
-                String[] parts = properties.getProperty(key, "").split("\\t", 3);
+                String[] parts = properties.getProperty(key, "").split("\\|", 3);
                 if (parts.length != 3) continue;
                 UUID id = UUID.fromString(key);
                 long timestamp = Long.parseLong(parts[1]);
@@ -62,7 +62,7 @@ public final class PresenceProtocolClient {
         Properties properties = new Properties();
         for (var entry : HISTORY.entrySet()) {
             LastSeen seen = entry.getValue();
-            properties.setProperty(entry.getKey().toString(), seen.name() + "\\t" + seen.timestamp() + "\\t" + seen.build());
+            properties.setProperty(entry.getKey().toString(), seen.name() + "|" + seen.timestamp() + "|" + seen.build());
         }
         try {
             Files.createDirectories(LAST_ONLINE_FILE.getParent());
