@@ -225,7 +225,6 @@ public final class PresenceProtocolClient {
             return;
         }
         sendCommand("CORDS_REQUEST", recipients);
-        source.sendFeedback(Component.literal("Koordinatenabfrage an " + recipients.size() + " Build-146-Client(s) gesendet."));
     }
 
     public static void showAfkOverlay(String name) {
