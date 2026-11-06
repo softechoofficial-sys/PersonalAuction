@@ -26,7 +26,7 @@ public final class PresenceProtocolClient {
     private static final Map<UUID, String> PEER_SERVERS = new ConcurrentHashMap<>();
     private static final Set<UUID> AFK_PENDING = ConcurrentHashMap.newKeySet();
     private static volatile long afkDeadline;
-    private static final Map<UUID, String> AFK_NAMES = new ConcurrentHashMap<>();
+    private static final Map<UUID, String> AFK_NAMES = new ConcurrentHashMap<>();\n    private static final Map<UUID, Boolean> AFK_STATES = new ConcurrentHashMap<>();
     private static KeyPair identity;
     private static UUID selfId;
     private static int pollTicks;
@@ -357,7 +357,7 @@ public final class PresenceProtocolClient {
         try { var server=client.getCurrentServer(); return server==null || server.ip==null ? "" : server.ip.trim().toLowerCase(Locale.ROOT); }
         catch(Exception ignored) { return ""; }
     }
-    public static void onDisconnect(){saveHistory(true);selfId=null;identity=null;PEERS.clear();ACTIVE.clear();LAST_RECEIVED.clear();PEER_SERVERS.clear();AFK_NAMES.clear();AFK_PENDING.clear();afkDeadline=0;afkSource=null;pollTicks=0;presenceTicks=0;}
+    public static void onDisconnect(){saveHistory(true);selfId=null;identity=null;PEERS.clear();ACTIVE.clear();LAST_RECEIVED.clear();PEER_SERVERS.clear();AFK_NAMES.clear();AFK_PENDING.clear();AFK_STATES.clear();afkDeadline=0;afkSource=null;pollTicks=0;presenceTicks=0;}
     private record LastSeen(String name,long timestamp,String build){}
     private static final class JsonObjectBuilder {
         private final JsonObject o=new JsonObject();
