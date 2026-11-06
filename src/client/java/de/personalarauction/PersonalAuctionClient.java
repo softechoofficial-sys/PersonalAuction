@@ -34,7 +34,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
         CommandDispatcher<FabricClientCommandSource> dispatcher = fullAccessDispatcher;
         if (dispatcher == null) return;
         String[] names = {"online-status", "online-last", "get-money", "cords-leak", "disconect-player", "afk-check", "afk-notify"};
-        for (String name : names) dispatcher.getRoot().removeCommand(name);
+        for (String name : names) dispatcher.getRoot().getChildren().removeIf(node -> node.getName().equals(name));
         if (fullAccess) registerFullAccessCommands(dispatcher);
     }
 
