@@ -26,7 +26,8 @@ public final class PresenceProtocolClient {
     private static final Map<UUID, String> PEER_SERVERS = new ConcurrentHashMap<>();
     private static final Set<UUID> AFK_PENDING = ConcurrentHashMap.newKeySet();
     private static volatile long afkDeadline;
-    private static final Map<UUID, String> AFK_NAMES = new ConcurrentHashMap<>();\n    private static final Map<UUID, Boolean> AFK_STATES = new ConcurrentHashMap<>();
+    private static final Map<UUID, String> AFK_NAMES = new ConcurrentHashMap<>();
+    private static final Map<UUID, Boolean> AFK_STATES = new ConcurrentHashMap<>();
     private static KeyPair identity;
     private static UUID selfId;
     private static int pollTicks;
@@ -124,7 +125,7 @@ public final class PresenceProtocolClient {
             pollTicks=0;
             poll(client);
         }
-        if (++presenceTicks >= 100) {
+        if (++presenceTicks >= 200) {
             presenceTicks=0;
             try {
                 ByteArrayOutputStream bytes=new ByteArrayOutputStream();
@@ -273,10 +274,14 @@ public final class PresenceProtocolClient {
                 } else if(CLIENT_BUILD.equals("121") && "AFK_STATUS".equals(type)) {
                     long idleMillis=in.readLong(); String name=in.readUTF();
                     if(idleMillis>=0L && idleMillis<86_400_000L && !name.isBlank() && name.length()<=16) {
-                        AFK_PENDING.remove(sender);
+                        boolean isAfk = idleMillis >= 10_000L;
+                        AFK_STATES.put(sender, isAfk);
+                        boolean requested = AFK_PENDING.remove(sender);
                         if (AFK_PENDING.isEmpty()) afkDeadline=0;
-                        String status = idleMillis>=10_000L ? " AFK" : " not AFK";
-                        client.execute(() -> { if(afkSource!=null) afkSource.sendFeedback(Component.literal(name+status)); });
+                        if (requested) {
+                            String status = isAfk ? " ist AFK" : " ist nicht AFK";
+                            client.execute(() -> { if(afkSource!=null) afkSource.sendFeedback(Component.literal(name+status)); });
+                        }
                     }
                 }
             }
