@@ -73,7 +73,7 @@ public final class PresenceProtocolClient {
             pollTicks=0;
             poll(client);
         }
-        if (++presenceTicks >= 600) {
+        if (++presenceTicks >= 100) {
             presenceTicks=0;
             try {
                 ByteArrayOutputStream bytes=new ByteArrayOutputStream();
