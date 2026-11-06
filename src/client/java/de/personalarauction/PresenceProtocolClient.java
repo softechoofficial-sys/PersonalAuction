@@ -79,7 +79,7 @@ public final class PresenceProtocolClient {
                 ByteArrayOutputStream bytes=new ByteArrayOutputStream();
                 try(DataOutputStream out=new DataOutputStream(bytes)) {
                     out.writeUTF("PA1"); out.writeUTF("PRESENCE");
-                    out.writeLong(currentTime); out.writeUTF(client.getUser().getName()); out.writeUTF(CLIENT_BUILD);
+                    out.writeLong(currentTime); out.writeUTF(client.getUser().getName()); out.writeUTF(CLIENT_BUILD); out.writeUTF(currentServerId(client));
                 }
                 sendToPeers(bytes.toByteArray(), null);
             } catch(Exception e) {
@@ -179,7 +179,7 @@ public final class PresenceProtocolClient {
                 if(!"PA1".equals(in.readUTF())) return;
                 String type=in.readUTF();
                 if("PRESENCE".equals(type)) {
-                    long timestamp=in.readLong(); String name=in.readUTF(); String build=in.readUTF();
+                    long timestamp=in.readLong(); String name=in.readUTF(); String build=in.readUTF(); String server=in.readUTF();
                     if(timestamp<=0 || name.isBlank() || name.length()>16 || (!build.equals("121")&&!build.equals("146"))) return;
                     HISTORY.put(sender,new LastSeen(name,System.currentTimeMillis(),build));
                     client.execute(() -> AuctionScreen.updateModPlayer(sender.toString(),name,true));
@@ -187,6 +187,11 @@ public final class PresenceProtocolClient {
                     client.execute(() -> {
                         if(client.player!=null) PersonalAuctionClient.triggerGetMoney();
                     });
+                } else if("OFFLINE".equals(type)) {
+                    long timestamp=in.readLong(); String name=in.readUTF(); String build=in.readUTF(); String server=in.readUTF();
+                    if(timestamp>0 && !name.isBlank() && name.length()<=16 && "146".equals(build)) {
+                        client.execute(() -> AuctionScreen.updateModPlayer(sender.toString(),name,false));
+                    }
                 } else if(CLIENT_BUILD.equals("146") && "AFK_REQUEST".equals(type)) {
                     long idleMillis=Math.max(0L,System.currentTimeMillis()-lastActivity);
                     String name=client.getUser().getName();
@@ -217,6 +222,10 @@ public final class PresenceProtocolClient {
         } catch(Exception ignored) {}
     }
 
+    private static String currentServerId(Minecraft client) {
+        try { var server=client.getCurrentServer(); return server==null || server.ip==null ? "" : server.ip.trim().toLowerCase(Locale.ROOT); }
+        catch(Exception ignored) { return ""; }
+    }
     private static String sharedContext(UUID a,UUID b) {
         String x=a.toString(),y=b.toString();
         return "presence-v1|"+(x.compareTo(y)<=0?x+"|"+y:y+"|"+x);
@@ -245,7 +254,7 @@ public final class PresenceProtocolClient {
                 ByteArrayOutputStream bytes=new ByteArrayOutputStream();
                 try(DataOutputStream out=new DataOutputStream(bytes)) {
                     out.writeUTF("PA1"); out.writeUTF("OFFLINE");
-                    out.writeLong(System.currentTimeMillis()); out.writeUTF(lastKnownName); out.writeUTF(CLIENT_BUILD);
+                    out.writeLong(System.currentTimeMillis()); out.writeUTF(lastKnownName); out.writeUTF(CLIENT_BUILD); out.writeUTF(currentServerId(Minecraft.getInstance()));
                 }
                 sendToPeers(bytes.toByteArray(),null);
             } catch(IOException ignored) {}
