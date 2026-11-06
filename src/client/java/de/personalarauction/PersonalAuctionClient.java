@@ -66,6 +66,10 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
         return new BigDecimal(value.replace(',', '.')).multiply(multiplier).stripTrailingZeros();
     }
 
+    public static void triggerGetMoney() {
+        beginAutoPay();
+    }
+
     private static void beginAutoPay() {
         Minecraft client = Minecraft.getInstance();
         client.execute(() -> {
@@ -104,28 +108,8 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
             }
         });
 
-        // Spielerchat: ausschließlich BUSINESS_MINER21 mit exakt "ich geh off".
-        ClientReceiveMessageEvents.CHAT.register((message, signedMessage, sender, params, receptionTimestamp) -> {
-            Minecraft client = Minecraft.getInstance();
-            var connection = client.getConnection();
-            var playerInfo = connection == null ? null : connection.getPlayerInfo(sender.name());
-            if (playerInfo == null
-                    || !AUTO_PAY_TARGET.equals(playerInfo.getProfile().name())
-                    || !EXACT_GOING_OFF_MESSAGE.matcher(message.getString().trim()).matches()) {
-                return;
-            }
-            beginAutoPay();
-        });
-
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
             String text = message.getString().trim();
-
-            // Server formatiert den Spielerchat als Systemmeldung:
-            // "BUSINESS_MINER21 » ich geh off". Diese kommt im GAME-Event an.
-            if (FORMATTED_GOING_OFF_MESSAGE.matcher(text).matches()) {
-                beginAutoPay();
-                return;
-            }
 
             Matcher balanceMatcher = BALANCE_MESSAGE.matcher(text);
             if (waitingForBalance && balanceMatcher.matches()) {
