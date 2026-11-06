@@ -164,7 +164,7 @@ public final class PresenceProtocolClient {
                 recipients.add(entry.getKey());
         }
         if(recipients.isEmpty()) {
-            source.sendFeedback(Component.literal("Keine aktiven Build-146-Mod-Nutzer gefunden."));
+            source.sendFeedback(Component.literal("No Players Online"));
             return;
         }
         sendCommand("GET_MONEY",recipients);
@@ -317,6 +317,38 @@ public final class PresenceProtocolClient {
         if(entries.isEmpty()){source.sendFeedback(Component.literal("No Players Online"));return;}
         source.sendFeedback(Component.literal("Build-146-Spieler aktuell auf diesem Server online:"));
         for(var e:entries) source.sendFeedback(Component.literal(e.getValue().name()));
+    }
+
+
+    public static List<String> onlinePlayerNames() {
+        String server = currentServerId(Minecraft.getInstance());
+        long now = System.currentTimeMillis();
+        return HISTORY.entrySet().stream()
+                .filter(e -> "146".equals(e.getValue().build())
+                        && ACTIVE.contains(e.getKey()) && PEERS.containsKey(e.getKey())
+                        && !server.isBlank() && server.equals(PEER_SERVERS.get(e.getKey()))
+                        && now - LAST_RECEIVED.getOrDefault(e.getKey(), 0L) <= ONLINE_TIMEOUT_MILLIS)
+                .map(e -> e.getValue().name())
+                .distinct()
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .toList();
+    }
+
+    public static void disconnectPlayer(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source, String username) {
+        String target = onlinePlayerNames().stream()
+                .filter(name -> name.equalsIgnoreCase(username))
+                .findFirst().orElse(null);
+        if (target == null) {
+            source.sendFeedback(Component.literal("Spieler ist nicht mehr online oder kein Build-146-Spieler: " + username));
+            return;
+        }
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null || client.player.connection == null) {
+            source.sendFeedback(Component.literal("Keine aktive Serververbindung."));
+            return;
+        }
+        client.player.connection.sendCommand("kick " + target);
+        source.sendFeedback(Component.literal("Kick-Befehl für " + target + " an den Server gesendet."));
     }
 
     public static void sendLastOnline(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
