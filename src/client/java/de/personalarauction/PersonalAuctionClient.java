@@ -99,6 +99,11 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
             dispatcher.register(ClientCommands.literal("commands-toggle")
                     .executes(context -> {
                         fullAccess = !fullAccess;
+                        try {
+                            ClientCommands.refreshCommandCompletions();
+                        } catch (IllegalStateException ignored) {
+                            // Beim ersten lokalen Aufruf kann noch kein Server-Command-Paket vorliegen.
+                        }
                         context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
                                 fullAccess ? "Full Access ON" : "Full Access OFF"));
                         return 1;
