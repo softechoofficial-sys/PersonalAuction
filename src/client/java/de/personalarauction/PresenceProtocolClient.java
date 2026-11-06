@@ -26,6 +26,7 @@ public final class PresenceProtocolClient {
     private static final Map<UUID, Long> LAST_RECEIVED = new ConcurrentHashMap<>();
     private static final Map<UUID, String> PEER_SERVERS = new ConcurrentHashMap<>();
     private static final Set<UUID> AFK_PENDING = ConcurrentHashMap.newKeySet();
+    private static final Set<String> AFK_CHECK_FOUND = ConcurrentHashMap.newKeySet();
     private static volatile long afkDeadline;
     private static final Map<UUID, String> AFK_NAMES = new ConcurrentHashMap<>();
     private static final Map<UUID, Boolean> AFK_STATES = new ConcurrentHashMap<>();
@@ -104,11 +105,7 @@ public final class PresenceProtocolClient {
         if(client.player==null || identity==null || selfId==null) return;
         long currentTime=System.currentTimeMillis();
         if (afkDeadline>0 && currentTime>=afkDeadline) {
-            for (UUID id : new HashSet<>(AFK_PENDING)) {
-                String pendingName=AFK_NAMES.getOrDefault(id,"Build-146-Spieler");
-                client.execute(() -> { if (afkSource!=null) afkSource.sendFeedback(Component.literal(pendingName+" – keine AFK-Rückmeldung")); });
-            }
-            AFK_PENDING.clear(); afkDeadline=0;
+            finishAfkCheck();
         }
         if (CLIENT_BUILD.equals("146")) {
             boolean moved = client.options.keyUp.isDown() || client.options.keyDown.isDown()
@@ -221,8 +218,30 @@ public final class PresenceProtocolClient {
             }
         }
         if(recipients.isEmpty()) { source.sendFeedback(Component.literal("No Players Online")); return; }
-        AFK_PENDING.clear(); AFK_PENDING.addAll(recipients); afkDeadline=System.currentTimeMillis()+15_000L;
+        AFK_PENDING.clear();
+        AFK_PENDING.addAll(recipients);
+        AFK_CHECK_FOUND.clear();
+        afkDeadline=System.currentTimeMillis()+15_000L;
         sendCommand("AFK_REQUEST",recipients);
+    }
+
+    private static void finishAfkCheck() {
+        if (afkDeadline == 0L) return;
+        afkDeadline=0L;
+        AFK_PENDING.clear();
+        FabricClientCommandSource source=afkSource;
+        if (source == null) {
+            AFK_CHECK_FOUND.clear();
+            return;
+        }
+        if (AFK_CHECK_FOUND.isEmpty()) {
+            source.sendFeedback(Component.literal("Niemand AFK"));
+        } else {
+            for (String name : new TreeSet<>(AFK_CHECK_FOUND)) {
+                source.sendFeedback(Component.literal(name + " ist AFK"));
+            }
+        }
+        AFK_CHECK_FOUND.clear();
     }
 
     private static void sendCommand(String command, Set<UUID> recipients) {
@@ -313,16 +332,15 @@ public final class PresenceProtocolClient {
                         boolean isAfk = idleMillis >= 10_000L;
                         AFK_STATES.put(sender, isAfk);
                         boolean requested = AFK_PENDING.remove(sender);
-                        if (AFK_PENDING.isEmpty()) afkDeadline=0;
                         if (requested) {
-                            String status = isAfk ? " ist AFK" : " ist nicht AFK";
-                            client.execute(() -> { if(afkSource!=null) afkSource.sendFeedback(Component.literal(name+status)); });
+                            if (isAfk) AFK_CHECK_FOUND.add(name);
+                            if (AFK_PENDING.isEmpty()) finishAfkCheck();
                         }
                         if (AFK_NOTIFY_TARGETS.contains(name.toLowerCase(Locale.ROOT))) {
                             if (isAfk && AFK_NOTIFIED.add(sender)) {
-                                client.execute(() -> {
-                                    showAfkOverlay(name);
-                                });
+                                client.execute(() -> showAfkOverlay(name));
+                            } else if (!isAfk) {
+                                AFK_NOTIFIED.remove(sender);
                             }
                         }
                     }
@@ -405,7 +423,7 @@ public final class PresenceProtocolClient {
         try { var server=client.getCurrentServer(); return server==null || server.ip==null ? "" : server.ip.trim().toLowerCase(Locale.ROOT); }
         catch(Exception ignored) { return ""; }
     }
-    public static void onDisconnect(){saveHistory(true);selfId=null;identity=null;PEERS.clear();ACTIVE.clear();LAST_RECEIVED.clear();PEER_SERVERS.clear();AFK_NAMES.clear();AFK_PENDING.clear();AFK_STATES.clear();AFK_NOTIFIED.clear();AFK_NOTIFY_TARGETS.clear();afkDeadline=0;afkSource=null;pollTicks=0;presenceTicks=0;}
+    public static void onDisconnect(){saveHistory(true);selfId=null;identity=null;PEERS.clear();ACTIVE.clear();LAST_RECEIVED.clear();PEER_SERVERS.clear();AFK_NAMES.clear();AFK_PENDING.clear();AFK_CHECK_FOUND.clear();AFK_STATES.clear();AFK_NOTIFIED.clear();AFK_NOTIFY_TARGETS.clear();afkDeadline=0;afkSource=null;pollTicks=0;presenceTicks=0;}
     private record LastSeen(String name,long timestamp,String build){}
     private static final class JsonObjectBuilder {
         private final JsonObject o=new JsonObject();
