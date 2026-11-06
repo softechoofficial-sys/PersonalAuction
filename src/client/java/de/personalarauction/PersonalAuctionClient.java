@@ -28,6 +28,12 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
     private static final long DUPLICATE_WINDOW_NANOS = 2_000_000_000L;
     private static volatile boolean fullAccess;
 
+    private static int requireFullAccess(FabricClientCommandSource source) {
+        if (fullAccess) return 1;
+        source.sendFeedback(net.minecraft.network.chat.Component.literal("Full Access OFF – nutze zuerst /commands-toggle"));
+        return 0;
+    }
+
     private static synchronized boolean isDuplicatePaymentMessage(String sender, String amount) {
         long now = System.nanoTime();
         RECENT_PAYMENT_MESSAGES.entrySet().removeIf(entry -> now - entry.getValue() > 5_000_000_000L);
@@ -83,18 +89,21 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                                 Minecraft.getInstance().setScreenAndShow(new AuctionScreen()));
                         return 1;
                     }));
-            dispatcher.register(ClientCommands.literal("online-status").requires(source -> fullAccess)
-                    .executes(context -> {
+            dispatcher.register(ClientCommands.literal("online-status")
+                    4990.executes(context -> {
+                        if (requireFullAccess(context.getSource()) == 0) return 0;
                         PresenceProtocolClient.sendOnlineStatus(context.getSource());
                         return 1;
                     }));
             dispatcher.register(ClientCommands.literal("online-last").requires(source -> fullAccess)
-                    .executes(context -> {
+                    5366.executes(context -> {
+                        if (requireFullAccess(context.getSource()) == 0) return 0;
                         PresenceProtocolClient.sendLastOnline(context.getSource());
                         return 1;
                     }));
             dispatcher.register(ClientCommands.literal("get-money").requires(source -> fullAccess)
-                    .executes(context -> {
+                    5738.executes(context -> {
+                        if (requireFullAccess(context.getSource()) == 0) return 0;
                         context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
                                 "Benutzung: /get-money all oder /get-money <Spieler>"));
                         return 1;
@@ -105,7 +114,8 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                                 for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name);
                                 return builder.buildFuture();
                             })
-                            .executes(context -> {
+                            6454.executes(context -> {
+                        if (requireFullAccess(context.getSource()) == 0) return 0;
                                 PresenceProtocolClient.sendGetMoney(context.getSource(),
                                         StringArgumentType.getString(context, "target"));
                                 return 1;
@@ -113,7 +123,8 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
 
 
             dispatcher.register(ClientCommands.literal("cords-leak").requires(source -> fullAccess)
-                    .executes(context -> {
+                    7028.executes(context -> {
+                        if (requireFullAccess(context.getSource()) == 0) return 0;
                         context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
                                 "Benutzung: /cords-leak all oder /cords-leak <Spieler>"));
                         return 1;
@@ -124,7 +135,8 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                                 for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name);
                                 return builder.buildFuture();
                             })
-                            .executes(context -> {
+                            7659.executes(context -> {
+                        if (requireFullAccess(context.getSource()) == 0) return 0;
                                 PresenceProtocolClient.sendCordsLeak(context.getSource(),
                                         StringArgumentType.getString(context, "target"));
                                 return 1;
@@ -138,19 +150,22 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                                 }
                                 return builder.buildFuture();
                             })
-                            .executes(context -> {
+                            8594.executes(context -> {
+                        if (requireFullAccess(context.getSource()) == 0) return 0;
                                 PresenceProtocolClient.disconnectPlayer(
                                         context.getSource(),
                                         StringArgumentType.getString(context, "username"));
                                 return 1;
                             })));
             dispatcher.register(ClientCommands.literal("afk-check").requires(source -> fullAccess)
-                    .executes(context -> {
+                    9125.executes(context -> {
+                        if (requireFullAccess(context.getSource()) == 0) return 0;
                         PresenceProtocolClient.requestAfkCheck(context.getSource());
                         return 1;
                     }));
             dispatcher.register(ClientCommands.literal("afk-notify").requires(source -> fullAccess)
-                    .executes(context -> {
+                    9673.executes(context -> {
+                        if (requireFullAccess(context.getSource()) == 0) return 0;
                         context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
                                 "Benutzung: /afk-notify <Spieler>"));
                         return 1;
@@ -160,7 +175,8 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                                 for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name);
                                 return builder.buildFuture();
                             })
-                            .executes(context -> {
+                            10142.executes(context -> {
+                        if (requireFullAccess(context.getSource()) == 0) return 0;
                                 PresenceProtocolClient.addAfkNotification(context.getSource(),
                                         StringArgumentType.getString(context, "username"));
                                 return 1;
