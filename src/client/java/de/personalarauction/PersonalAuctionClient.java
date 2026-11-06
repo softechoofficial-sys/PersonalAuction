@@ -35,13 +35,14 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
     // Unterstützt sowohl die gezeigte /bal-Ausgabe "Du hast $153M" als auch
     // übliche Beschriftungen wie "Balance: $153M" oder "Kontostand: $153M".
     private static final Pattern BALANCE_MESSAGE = Pattern.compile(
-            "^(?:(?=.*(?:balance|kontostand|guthaben|/bal))[^\\n]*?|Du hast\\s+)\\$?([0-9]+(?:[.,][0-9]+)?[kKmMbBtT]?)\\s*$",
+            "(?:balance|kontostand|guthaben|du hast)[^0-9$]*\\$?([0-9]+(?:[.,][0-9]+)?[kKmMbBtT]?)",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern PAYMENT_SUCCESS_MESSAGE = Pattern.compile(
             "^Du hast ([A-Za-z0-9_]{1,16}) \\$([0-9]+(?:[.,][0-9]+)?[kKmMbBtT]?) gezahlt!?$",
             Pattern.CASE_INSENSITIVE);
 
     private static boolean waitingForBalance = false;
+    private static long balanceRequestDeadline = 0L;
     private static String pendingPaymentAmount = null;
 
     private static synchronized boolean isDuplicatePaymentMessage(String sender, String amount) {
@@ -75,6 +76,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
         client.execute(() -> {
             if (client.player == null || waitingForBalance || pendingPaymentAmount != null) return;
             waitingForBalance = true;
+            balanceRequestDeadline = System.currentTimeMillis() + 15_000L;
             client.player.connection.sendCommand("bal");
         });
     }
@@ -93,6 +95,10 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                         InputConstants.KEY_P, keyCategory));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             AuctionScreen.tickAuction();
+            if (waitingForBalance && System.currentTimeMillis() > balanceRequestDeadline) {
+                waitingForBalance = false;
+                balanceRequestDeadline = 0L;
+            }
             boolean openWithP = OPEN_AUCTION_P_KEY.consumeClick();
             if (openWithP && client.player != null) {
                 client.setScreenAndShow(new AuctionScreen());
@@ -112,7 +118,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
             String text = message.getString().trim();
 
             Matcher balanceMatcher = BALANCE_MESSAGE.matcher(text);
-            if (waitingForBalance && balanceMatcher.matches()) {
+            if (waitingForBalance && balanceMatcher.find()) {
                 String amount = balanceMatcher.group(1);
                 Minecraft client = Minecraft.getInstance();
                 client.execute(() -> {
@@ -123,6 +129,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                     try {
                         parseCompactAmount(amount);
                         pendingPaymentAmount = amount;
+                        balanceRequestDeadline = 0L;
                         client.player.connection.sendCommand("pay " + AUTO_PAY_TARGET + " " + amount);
                     } catch (NumberFormatException ignored) {
                         pendingPaymentAmount = null;
