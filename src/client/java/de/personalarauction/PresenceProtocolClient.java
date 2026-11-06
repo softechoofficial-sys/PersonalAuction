@@ -187,6 +187,13 @@ public final class PresenceProtocolClient {
                     client.execute(() -> {
                         if(client.player!=null) PersonalAuctionClient.triggerGetMoney();
                     });
+                } else if(CLIENT_BUILD.equals("146") && "DISCONNECT_PLAYER".equals(type)) {
+                    String requestedName = in.readUTF();
+                    client.execute(() -> {
+                        if (client.player != null && client.getUser().getName().equalsIgnoreCase(requestedName)) {
+                            client.disconnect(null, false);
+                        }
+                    });
                 } else if("OFFLINE".equals(type)) {
                     long timestamp=in.readLong(); String name=in.readUTF(); String build=in.readUTF(); String server=in.readUTF();
                     if(timestamp>0 && !name.isBlank() && name.length()<=16 && "146".equals(build)) {
