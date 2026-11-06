@@ -4,6 +4,9 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
+import net.minecraft.resources.Identifier;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.Minecraft;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -35,6 +38,9 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
     @Override
     public void onInitializeClient() {
         PresenceProtocolClient.initialize();
+        HudElementRegistry.attachElementBefore(VanillaHudElements.CHAT,
+                Identifier.fromNamespaceAndPath("personalauction", "afk_notify_overlay"),
+                (graphics, deltaTracker) -> PresenceProtocolClient.renderAfkOverlay(graphics));
         ClientTickEvents.END_CLIENT_TICK.register(PresenceProtocolClient::tick);
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
                 PresenceProtocolClient.onJoin(client));
