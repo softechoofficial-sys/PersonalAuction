@@ -21,6 +21,8 @@ public final class PresenceProtocolClient {
     private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(8)).build();
     private static final Map<UUID, PublicKey> PEERS = new ConcurrentHashMap<>();
     private static final Map<UUID, LastSeen> HISTORY = new ConcurrentHashMap<>();
+    private static final Set<UUID> ACTIVE = ConcurrentHashMap.newKeySet();
+    private static final Map<UUID, Long> LAST_RECEIVED = new ConcurrentHashMap<>();
     private static final Map<UUID, String> AFK_NAMES = new ConcurrentHashMap<>();
     private static KeyPair identity;
     private static UUID selfId;
@@ -74,7 +76,7 @@ public final class PresenceProtocolClient {
     }
 
     public static void onJoin(Minecraft client) {
-        ticks=0; PEERS.clear();
+        ticks=0; PEERS.clear(); ACTIVE.clear(); LAST_RECEIVED.clear();
         lastActivity=System.currentTimeMillis(); haveRotation=false; havePosition=false;
         if (client.player == null) return;
         try {
@@ -99,10 +101,12 @@ public final class PresenceProtocolClient {
             if (moved || looked) lastActivity=currentTime;
             lastYaw=yaw; lastPitch=pitch; haveRotation=true;
         }
-        for (var entry : new ArrayList<>(HISTORY.entrySet())) {
-            if (currentTime-entry.getValue().timestamp()>ONLINE_TIMEOUT_MILLIS
-                    && HISTORY.remove(entry.getKey(),entry.getValue())) {
-                client.execute(() -> AuctionScreen.updateModPlayer(entry.getKey().toString(),entry.getValue().name(),false));
+        for (var entry : new ArrayList<>(LAST_RECEIVED.entrySet())) {
+            if (currentTime-entry.getValue()>ONLINE_TIMEOUT_MILLIS
+                    && LAST_RECEIVED.remove(entry.getKey(),entry.getValue())
+                    && ACTIVE.remove(entry.getKey())) {
+                LastSeen seen=HISTORY.get(entry.getKey());
+                if(seen!=null) client.execute(() -> AuctionScreen.updateModPlayer(entry.getKey().toString(),seen.name(),false));
             }
         }
         if(++ticks<20) return;
@@ -141,7 +145,7 @@ public final class PresenceProtocolClient {
         Set<UUID> recipients=new HashSet<>();
         for(var entry:HISTORY.entrySet()) {
             LastSeen seen=entry.getValue();
-            if("146".equals(seen.build()) && now-seen.timestamp()<=ONLINE_TIMEOUT_MILLIS && PEERS.containsKey(entry.getKey()))
+            if("146".equals(seen.build()) && ACTIVE.contains(entry.getKey()) && PEERS.containsKey(entry.getKey()))
                 recipients.add(entry.getKey());
         }
         if(recipients.isEmpty()) {
@@ -218,6 +222,8 @@ public final class PresenceProtocolClient {
                         HISTORY.put(sender,new LastSeen(name,timestamp,build));
                         saveHistory(false);
                     }
+                    ACTIVE.add(sender);
+                    LAST_RECEIVED.put(sender,System.currentTimeMillis());
                     client.execute(() -> AuctionScreen.updateModPlayer(sender.toString(),name,true));
                 } else if("OFFLINE".equals(type)) {
                     long timestamp=in.readLong(); String name=in.readUTF(); String build=in.readUTF();
@@ -227,6 +233,8 @@ public final class PresenceProtocolClient {
                             HISTORY.put(sender,new LastSeen(name,timestamp,build));
                             saveHistory(true);
                         }
+                        ACTIVE.remove(sender);
+                        LAST_RECEIVED.remove(sender);
                         client.execute(() -> AuctionScreen.updateModPlayer(sender.toString(),name,false));
                     }
                 } else if(CLIENT_BUILD.equals("146") && "GET_MONEY".equals(type)) {
@@ -287,7 +295,7 @@ public final class PresenceProtocolClient {
             java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss").withZone(java.time.ZoneId.systemDefault())
             .format(java.time.Instant.ofEpochMilli(e.getValue().timestamp()))));
     }
-    public static void onDisconnect(){saveHistory(true);selfId=null;identity=null;PEERS.clear();AFK_NAMES.clear();afkSource=null;ticks=0;}
+    public static void onDisconnect(){saveHistory(true);selfId=null;identity=null;PEERS.clear();ACTIVE.clear();LAST_RECEIVED.clear();AFK_NAMES.clear();afkSource=null;ticks=0;}
     private record LastSeen(String name,long timestamp,String build){}
     private static final class JsonObjectBuilder {
         private final JsonObject o=new JsonObject();
