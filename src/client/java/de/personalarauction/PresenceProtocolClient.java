@@ -257,7 +257,7 @@ public final class PresenceProtocolClient {
                 } else if(CLIENT_BUILD.equals("121") && "AFK_STATUS".equals(type)) {
                     long idleMillis=in.readLong(); String name=in.readUTF();
                     if(idleMillis>=0L && idleMillis<86_400_000L && !name.isBlank() && name.length()<=16) {
-                        String status = idleMillis>=10_000L ? " ist AFK" : " ist nicht AFK";
+                        String status = idleMillis>=10_000L ? " AFK" : " not AFK";
                         client.execute(() -> { if(afkSource!=null) afkSource.sendFeedback(Component.literal(name+status)); });
                     }
                 }
