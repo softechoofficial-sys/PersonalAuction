@@ -44,6 +44,7 @@ public final class PresenceProtocolClient {
     private static boolean haveRotation, havePosition;
     private static net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource afkSource;
     private static net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource cordsSource;
+    private static final Set<UUID> CORDS_RESPONDED = ConcurrentHashMap.newKeySet();
     private static final long ONLINE_TIMEOUT_MILLIS = 75_000L;
     private static final Path LAST_ONLINE_FILE = FabricLoader.getInstance().getConfigDir().resolve("personalauction-last-online.properties");
     private static long lastHistorySave;
@@ -195,6 +196,7 @@ public final class PresenceProtocolClient {
 
     public static void sendCordsLeak(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source, String target) {
         cordsSource = source;
+        CORDS_RESPONDED.clear();
         long now = System.currentTimeMillis();
         Set<UUID> recipients = new HashSet<>();
         if ("all".equalsIgnoreCase(target)) {
@@ -385,11 +387,12 @@ public final class PresenceProtocolClient {
                     String name = in.readUTF();
                     int x = in.readInt(), y = in.readInt(), z = in.readInt();
                     String dimension = in.readUTF();
-                    if (!name.isBlank() && name.length() <= 16 && dimension.length() <= 128) {
+                    if (!name.isBlank() && name.length() <= 16 && dimension.length() <= 32
+                            && CORDS_RESPONDED.add(sender)) {
                         client.execute(() -> {
                             var source = cordsSource;
                             if (source != null) source.sendFeedback(Component.literal(
-                                    name + ": " + x + " " + y + " " + z + " (" + dimension + ")"));
+                                    name + " : " + x + " " + y + " " + z + " (" + dimension + ")"));
                         });
                     }
                 } else if(CLIENT_BUILD.equals("121") && "AFK_STATUS".equals(type)) {
