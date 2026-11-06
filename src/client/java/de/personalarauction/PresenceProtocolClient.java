@@ -185,7 +185,7 @@ public final class PresenceProtocolClient {
             }
         }
         if(recipients.isEmpty()) {
-            source.sendFeedback(Component.literal("Keine aktiven Build-146-Mod-Nutzer gefunden."));
+            source.sendFeedback(Component.literal("No Players Online"));
             return;
         }
         AFK_PENDING.clear(); AFK_PENDING.addAll(recipients); afkDeadline=System.currentTimeMillis()+15_000L;
@@ -314,7 +314,7 @@ public final class PresenceProtocolClient {
                 && server.equals(PEER_SERVERS.get(e.getKey()))
                 && now-LAST_RECEIVED.getOrDefault(e.getKey(),0L)<=ONLINE_TIMEOUT_MILLIS)
             .sorted(Map.Entry.comparingByValue(Comparator.comparing(LastSeen::name,String.CASE_INSENSITIVE_ORDER))).toList();
-        if(entries.isEmpty()){source.sendFeedback(Component.literal("Aktuell ist kein Build-146-Spieler auf diesem Server online."));return;}
+        if(entries.isEmpty()){source.sendFeedback(Component.literal("No Players Online"));return;}
         source.sendFeedback(Component.literal("Build-146-Spieler aktuell auf diesem Server online:"));
         for(var e:entries) source.sendFeedback(Component.literal(e.getValue().name()));
     }
