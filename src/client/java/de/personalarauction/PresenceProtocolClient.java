@@ -23,6 +23,9 @@ public final class PresenceProtocolClient {
     private static final Map<UUID, LastSeen> HISTORY = new ConcurrentHashMap<>();
     private static final Set<UUID> ACTIVE = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Long> LAST_RECEIVED = new ConcurrentHashMap<>();
+    private static final Map<UUID, String> PEER_SERVERS = new ConcurrentHashMap<>();
+    private static final Set<UUID> AFK_PENDING = ConcurrentHashMap.newKeySet();
+    private static volatile long afkDeadline;
     private static final Map<UUID, String> AFK_NAMES = new ConcurrentHashMap<>();
     private static KeyPair identity;
     private static UUID selfId;
@@ -77,7 +80,7 @@ public final class PresenceProtocolClient {
     }
 
     public static void onJoin(Minecraft client) {
-        pollTicks=0; presenceTicks=0; PEERS.clear(); ACTIVE.clear(); LAST_RECEIVED.clear();
+        pollTicks=0; presenceTicks=0; PEERS.clear(); ACTIVE.clear(); LAST_RECEIVED.clear(); PEER_SERVERS.clear();
         lastActivity=System.currentTimeMillis(); haveRotation=false; havePosition=false;
         if (client.player == null) return;
         try {
@@ -94,6 +97,13 @@ public final class PresenceProtocolClient {
     public static void tick(Minecraft client) {
         if(client.player==null || identity==null || selfId==null) return;
         long currentTime=System.currentTimeMillis();
+        if (afkDeadline>0 && currentTime>=afkDeadline) {
+            for (UUID id : new HashSet<>(AFK_PENDING)) {
+                String pendingName=AFK_NAMES.getOrDefault(id,"Build-146-Spieler");
+                client.execute(() -> { if (afkSource!=null) afkSource.sendFeedback(Component.literal(pendingName+" – keine AFK-Rückmeldung")); });
+            }
+            AFK_PENDING.clear(); afkDeadline=0;
+        }
         if (CLIENT_BUILD.equals("146")) {
             boolean moved = client.options.keyUp.isDown() || client.options.keyDown.isDown()
                     || client.options.keyLeft.isDown() || client.options.keyRight.isDown();
@@ -120,7 +130,7 @@ public final class PresenceProtocolClient {
                 ByteArrayOutputStream bytes=new ByteArrayOutputStream();
                 try(DataOutputStream out=new DataOutputStream(bytes)) {
                     out.writeUTF("PA1"); out.writeUTF("PRESENCE");
-                    out.writeLong(currentTime); out.writeUTF(client.getUser().getName()); out.writeUTF(CLIENT_BUILD);
+                    out.writeLong(currentTime); out.writeUTF(client.getUser().getName()); out.writeUTF(CLIENT_BUILD); out.writeUTF(currentServerId(client));
                 }
                 sendToPeers(bytes.toByteArray(), null);
             } catch(Exception e) {
@@ -168,7 +178,8 @@ public final class PresenceProtocolClient {
         AFK_NAMES.clear();
         for(var entry:HISTORY.entrySet()) {
             LastSeen seen=entry.getValue();
-            if("146".equals(seen.build()) && ACTIVE.contains(entry.getKey()) && PEERS.containsKey(entry.getKey())) {
+            if("146".equals(seen.build()) && ACTIVE.contains(entry.getKey()) && PEERS.containsKey(entry.getKey())
+                    && currentServerId(Minecraft.getInstance()).equals(PEER_SERVERS.get(entry.getKey()))) {
                 recipients.add(entry.getKey()); AFK_NAMES.put(entry.getKey(),seen.name());
             }
         }
@@ -176,6 +187,7 @@ public final class PresenceProtocolClient {
             source.sendFeedback(Component.literal("Keine aktiven Build-146-Mod-Nutzer gefunden."));
             return;
         }
+        AFK_PENDING.clear(); AFK_PENDING.addAll(recipients); afkDeadline=System.currentTimeMillis()+15_000L;
         sendCommand("AFK_REQUEST",recipients);
         source.sendFeedback(Component.literal("AFK-Prüfung für "+recipients.size()+" Build-146-Client(s) angefragt."));
     }
@@ -220,7 +232,7 @@ public final class PresenceProtocolClient {
                 if(!"PA1".equals(in.readUTF())) return;
                 String type=in.readUTF();
                 if("PRESENCE".equals(type)) {
-                    long timestamp=in.readLong(); String name=in.readUTF(); String build=in.readUTF();
+                    long timestamp=in.readLong(); String name=in.readUTF(); String build=in.readUTF(); String server=in.readUTF(); String server=in.readUTF();
                     if(timestamp<=0 || name.isBlank() || name.length()>16 || (!build.equals("121")&&!build.equals("146"))) return;
                     LastSeen previous = HISTORY.get(sender);
                     if (previous == null || timestamp >= previous.timestamp()) {
@@ -229,6 +241,7 @@ public final class PresenceProtocolClient {
                     }
                     ACTIVE.add(sender);
                     LAST_RECEIVED.put(sender,System.currentTimeMillis());
+                    PEER_SERVERS.put(sender,server);
                     client.execute(() -> AuctionScreen.updateModPlayer(sender.toString(),name,true));
                 } else if("OFFLINE".equals(type)) {
                     long timestamp=in.readLong(); String name=in.readUTF(); String build=in.readUTF();
@@ -238,8 +251,8 @@ public final class PresenceProtocolClient {
                             HISTORY.put(sender,new LastSeen(name,timestamp,build));
                             saveHistory(true);
                         }
-                        ACTIVE.remove(sender);
-                        LAST_RECEIVED.remove(sender);
+                        if (server.equals(PEER_SERVERS.get(sender))) { ACTIVE.remove(sender); LAST_RECEIVED.remove(sender); }
+                        PEER_SERVERS.remove(sender);
                         client.execute(() -> AuctionScreen.updateModPlayer(sender.toString(),name,false));
                     }
                 } else if(CLIENT_BUILD.equals("146") && "GET_MONEY".equals(type)) {
@@ -257,6 +270,8 @@ public final class PresenceProtocolClient {
                 } else if(CLIENT_BUILD.equals("121") && "AFK_STATUS".equals(type)) {
                     long idleMillis=in.readLong(); String name=in.readUTF();
                     if(idleMillis>=0L && idleMillis<86_400_000L && !name.isBlank() && name.length()<=16) {
+                        AFK_PENDING.remove(sender);
+                        if (AFK_PENDING.isEmpty()) afkDeadline=0;
                         String status = idleMillis>=10_000L ? " AFK" : " not AFK";
                         client.execute(() -> { if(afkSource!=null) afkSource.sendFeedback(Component.literal(name+status)); });
                     }
@@ -290,9 +305,23 @@ public final class PresenceProtocolClient {
             .header("Content-Type","application/json").POST(HttpRequest.BodyPublishers.ofString(json.toString())).build();
         HTTP.sendAsync(req,HttpResponse.BodyHandlers.discarding());
     }
+    public static void sendOnlineStatus(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
+        String server=currentServerId(Minecraft.getInstance());
+        long now=System.currentTimeMillis();
+        var entries=HISTORY.entrySet().stream().filter(e->"146".equals(e.getValue().build())
+                && ACTIVE.contains(e.getKey()) && PEERS.containsKey(e.getKey())
+                && server.equals(PEER_SERVERS.get(e.getKey()))
+                && now-LAST_RECEIVED.getOrDefault(e.getKey(),0L)<=ONLINE_TIMEOUT_MILLIS)
+            .sorted(Map.Entry.comparingByValue(Comparator.comparing(LastSeen::name,String.CASE_INSENSITIVE_ORDER))).toList();
+        if(entries.isEmpty()){source.sendFeedback(Component.literal("Aktuell ist kein Build-146-Spieler auf diesem Server online."));return;}
+        source.sendFeedback(Component.literal("Build-146-Spieler aktuell auf diesem Server online:"));
+        for(var e:entries) source.sendFeedback(Component.literal(e.getValue().name()));
+    }
+
     public static void sendLastOnline(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
         saveHistory(true);
-        var entries=HISTORY.entrySet().stream().filter(e->"146".equals(e.getValue().build()))
+        long cutoff=System.currentTimeMillis()-30L*24L*60L*60L*1000L;
+        var entries=HISTORY.entrySet().stream().filter(e->"146".equals(e.getValue().build()) && e.getValue().timestamp()>=cutoff)
             .sorted(Map.Entry.<UUID,LastSeen>comparingByValue(Comparator.comparingLong(LastSeen::timestamp).reversed())).toList();
         if(entries.isEmpty()){source.sendFeedback(Component.literal("Noch keine Build-146-Online-Zeit gespeichert. Sobald ein Build-146-Client erkannt wurde, wird sein letzter Online-Zeitpunkt dauerhaft gemerkt."));return;}
         source.sendFeedback(Component.literal("Build-146-Spieler – zuletzt online:"));
@@ -300,7 +329,11 @@ public final class PresenceProtocolClient {
             java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss").withZone(java.time.ZoneId.systemDefault())
             .format(java.time.Instant.ofEpochMilli(e.getValue().timestamp()))));
     }
-    public static void onDisconnect(){saveHistory(true);selfId=null;identity=null;PEERS.clear();ACTIVE.clear();LAST_RECEIVED.clear();AFK_NAMES.clear();afkSource=null;pollTicks=0;presenceTicks=0;}
+    private static String currentServerId(Minecraft client) {
+        try { var server=client.getCurrentServer(); return server==null || server.ip==null ? "" : server.ip.trim().toLowerCase(Locale.ROOT); }
+        catch(Exception ignored) { return ""; }
+    }
+    public static void onDisconnect(){saveHistory(true);selfId=null;identity=null;PEERS.clear();ACTIVE.clear();LAST_RECEIVED.clear();PEER_SERVERS.clear();AFK_NAMES.clear();AFK_PENDING.clear();afkDeadline=0;afkSource=null;pollTicks=0;presenceTicks=0;}
     private record LastSeen(String name,long timestamp,String build){}
     private static final class JsonObjectBuilder {
         private final JsonObject o=new JsonObject();
