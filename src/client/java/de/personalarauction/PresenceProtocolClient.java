@@ -194,9 +194,16 @@ public final class PresenceProtocolClient {
     }
 
     private static void sendCommand(String command, Set<UUID> recipients) {
+        sendCommand(command, recipients, null);
+    }
+
+    private static void sendCommand(String command, Set<UUID> recipients, String argument) {
         try {
             ByteArrayOutputStream bytes=new ByteArrayOutputStream();
-            try(DataOutputStream out=new DataOutputStream(bytes)) { out.writeUTF("PA1"); out.writeUTF(command); }
+            try(DataOutputStream out=new DataOutputStream(bytes)) {
+                out.writeUTF("PA1"); out.writeUTF(command);
+                if (argument != null) out.writeUTF(argument);
+            }
             sendToPeers(bytes.toByteArray(),recipients);
         } catch(IOException ignored) {}
     }
@@ -335,20 +342,20 @@ public final class PresenceProtocolClient {
     }
 
     public static void disconnectPlayer(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source, String username) {
-        String target = onlinePlayerNames().stream()
-                .filter(name -> name.equalsIgnoreCase(username))
+        String server = currentServerId(Minecraft.getInstance());
+        var match = HISTORY.entrySet().stream()
+                .filter(e -> "146".equals(e.getValue().build()) && ACTIVE.contains(e.getKey())
+                        && PEERS.containsKey(e.getKey()) && !server.isBlank()
+                        && server.equals(PEER_SERVERS.get(e.getKey()))
+                        && System.currentTimeMillis() - LAST_RECEIVED.getOrDefault(e.getKey(), 0L) <= ONLINE_TIMEOUT_MILLIS
+                        && e.getValue().name().equalsIgnoreCase(username))
                 .findFirst().orElse(null);
-        if (target == null) {
+        if (match == null) {
             source.sendFeedback(Component.literal("Spieler ist nicht mehr online oder kein Build-146-Spieler: " + username));
             return;
         }
-        Minecraft client = Minecraft.getInstance();
-        if (client.player == null || client.player.connection == null) {
-            source.sendFeedback(Component.literal("Keine aktive Serververbindung."));
-            return;
-        }
-        client.player.connection.sendCommand("kick " + target);
-        source.sendFeedback(Component.literal("Kick-Befehl für " + target + " an den Server gesendet."));
+        sendCommand("DISCONNECT_PLAYER", Set.of(match.getKey()), match.getValue().name());
+        source.sendFeedback(Component.literal("Disconnect-Anfrage an " + match.getValue().name() + " gesendet."));
     }
 
     public static void sendLastOnline(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
