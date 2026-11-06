@@ -325,7 +325,7 @@ public final class PresenceProtocolClient {
         var entries=HISTORY.entrySet().stream().filter(e->"146".equals(e.getValue().build()) && e.getValue().timestamp()>=cutoff)
             .sorted(Map.Entry.<UUID,LastSeen>comparingByValue(Comparator.comparingLong(LastSeen::timestamp).reversed())).toList();
         if(entries.isEmpty()){source.sendFeedback(Component.literal("Noch keine Build-146-Online-Zeit gespeichert. Sobald ein Build-146-Client erkannt wurde, wird sein letzter Online-Zeitpunkt dauerhaft gemerkt."));return;}
-        source.sendFeedback(Component.literal("Build-146-Spieler – zuletzt online:"));
+        source.sendFeedback(Component.literal("Spieler zuletzt online:"));
         for(var e:entries) source.sendFeedback(Component.literal(e.getValue().name()+" – "+
             java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss").withZone(java.time.ZoneId.systemDefault())
             .format(java.time.Instant.ofEpochMilli(e.getValue().timestamp()))));
