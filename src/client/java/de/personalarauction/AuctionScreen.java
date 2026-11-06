@@ -59,9 +59,11 @@ public class AuctionScreen extends Screen {
     // Das ursprüngliche Layout bleibt bei großen Fenstern unverändert.
     // Auf kleinen Fenstern wird die gesamte Oberfläche proportional verkleinert.
     private float getUiScale() {
-        float widthScale = (this.width - 24.0f) / 420.0f;
-        float heightScale = (this.height - 24.0f) / 290.0f;
-        return Math.max(0.55f, Math.min(1.0f, Math.min(widthScale, heightScale)));
+        // Fit the complete bordered panel (422 x 292 logical pixels) inside
+        // the available screen area, leaving an 8-pixel margin on every side.
+        float widthScale = (this.width - 16.0f) / 422.0f;
+        float heightScale = (this.height - 16.0f) / 292.0f;
+        return Math.max(0.1f, Math.min(1.0f, Math.min(widthScale, heightScale)));
     }
 
     private double toLogicalX(double x) {
