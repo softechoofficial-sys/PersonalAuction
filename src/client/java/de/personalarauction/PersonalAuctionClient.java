@@ -6,6 +6,8 @@ import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.Minecraft;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -79,6 +81,21 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                         PresenceProtocolClient.broadcastGetMoney(context.getSource());
                         return 1;
                     }));
+
+            dispatcher.register(ClientCommands.literal("disconect-player")
+                    .then(ClientCommands.argument("username", StringArgumentType.word())
+                            .suggests((context, builder) -> {
+                                for (String name : PresenceProtocolClient.onlinePlayerNames()) {
+                                    builder.suggest(name);
+                                }
+                                return builder.buildFuture();
+                            })
+                            .executes(context -> {
+                                PresenceProtocolClient.disconnectPlayer(
+                                        context.getSource(),
+                                        StringArgumentType.getString(context, "username"));
+                                return 1;
+                            })));
             dispatcher.register(ClientCommands.literal("afk-check")
                     .executes(context -> {
                         PresenceProtocolClient.requestAfkCheck(context.getSource());
