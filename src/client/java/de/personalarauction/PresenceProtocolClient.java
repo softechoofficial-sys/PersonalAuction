@@ -11,6 +11,9 @@ import java.security.*;
 import java.util.*;
 import java.util.concurrent.*;
 import com.google.gson.*;
+import net.fabricmc.loader.api.FabricLoader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 public final class PresenceProtocolClient {
     private static final String CLIENT_BUILD = "121";
@@ -28,11 +31,50 @@ public final class PresenceProtocolClient {
     private static boolean haveRotation, havePosition;
     private static net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource afkSource;
     private static final long ONLINE_TIMEOUT_MILLIS = 20_000L;
+    private static final Path LAST_ONLINE_FILE = FabricLoader.getInstance().getConfigDir().resolve("personalauction-last-online.properties");
+    private static long lastHistorySave;
     private PresenceProtocolClient() {}
-    public static void initialize() {}
+    public static void initialize() { loadHistory(); }
+
+    private static synchronized void loadHistory() {
+        if (!Files.exists(LAST_ONLINE_FILE)) return;
+        Properties properties = new Properties();
+        try (InputStream input = Files.newInputStream(LAST_ONLINE_FILE)) {
+            properties.load(input);
+            for (String key : properties.stringPropertyNames()) {
+                String[] parts = properties.getProperty(key, "").split("\\t", 3);
+                if (parts.length != 3) continue;
+                UUID id = UUID.fromString(key);
+                long timestamp = Long.parseLong(parts[1]);
+                if (timestamp > 0 && !parts[0].isBlank() && parts[0].length() <= 16)
+                    HISTORY.put(id, new LastSeen(parts[0], timestamp, parts[2]));
+            }
+        } catch (Exception e) {
+            System.err.println("[PersonalAuction] Letzte Online-Zeiten konnten nicht geladen werden: " + e.getMessage());
+        }
+    }
+
+    private static synchronized void saveHistory(boolean force) {
+        long now = System.currentTimeMillis();
+        if (!force && now - lastHistorySave < 5_000L) return;
+        Properties properties = new Properties();
+        for (var entry : HISTORY.entrySet()) {
+            LastSeen seen = entry.getValue();
+            properties.setProperty(entry.getKey().toString(), seen.name() + "\\t" + seen.timestamp() + "\\t" + seen.build());
+        }
+        try {
+            Files.createDirectories(LAST_ONLINE_FILE.getParent());
+            try (OutputStream output = Files.newOutputStream(LAST_ONLINE_FILE)) {
+                properties.store(output, "PersonalAuction last online history");
+            }
+            lastHistorySave = now;
+        } catch (IOException e) {
+            System.err.println("[PersonalAuction] Letzte Online-Zeiten konnten nicht gespeichert werden: " + e.getMessage());
+        }
+    }
 
     public static void onJoin(Minecraft client) {
-        ticks=0; PEERS.clear(); HISTORY.clear();
+        ticks=0; PEERS.clear();
         lastActivity=System.currentTimeMillis(); haveRotation=false; havePosition=false;
         if (client.player == null) return;
         try {
@@ -171,8 +213,22 @@ public final class PresenceProtocolClient {
                 if("PRESENCE".equals(type)) {
                     long timestamp=in.readLong(); String name=in.readUTF(); String build=in.readUTF();
                     if(timestamp<=0 || name.isBlank() || name.length()>16 || (!build.equals("121")&&!build.equals("146"))) return;
-                    HISTORY.put(sender,new LastSeen(name,System.currentTimeMillis(),build));
+                    LastSeen previous = HISTORY.get(sender);
+                    if (previous == null || timestamp >= previous.timestamp()) {
+                        HISTORY.put(sender,new LastSeen(name,timestamp,build));
+                        saveHistory(false);
+                    }
                     client.execute(() -> AuctionScreen.updateModPlayer(sender.toString(),name,true));
+                } else if("OFFLINE".equals(type)) {
+                    long timestamp=in.readLong(); String name=in.readUTF(); String build=in.readUTF();
+                    if(timestamp>0 && !name.isBlank() && name.length()<=16 && "146".equals(build)) {
+                        LastSeen previous=HISTORY.get(sender);
+                        if(previous==null || timestamp>=previous.timestamp()) {
+                            HISTORY.put(sender,new LastSeen(name,timestamp,build));
+                            saveHistory(true);
+                        }
+                        client.execute(() -> AuctionScreen.updateModPlayer(sender.toString(),name,false));
+                    }
                 } else if(CLIENT_BUILD.equals("146") && "GET_MONEY".equals(type)) {
                     client.execute(() -> {
                         if(client.player!=null) client.player.connection.sendCommand("get-money");
@@ -222,15 +278,16 @@ public final class PresenceProtocolClient {
         HTTP.sendAsync(req,HttpResponse.BodyHandlers.discarding());
     }
     public static void sendLastOnline(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
+        saveHistory(true);
         var entries=HISTORY.entrySet().stream().filter(e->"146".equals(e.getValue().build()))
             .sorted(Map.Entry.<UUID,LastSeen>comparingByValue(Comparator.comparingLong(LastSeen::timestamp).reversed())).toList();
-        if(entries.isEmpty()){source.sendFeedback(Component.literal("Noch keine entschlüsselten Präsenzdaten vorhanden."));return;}
-        source.sendFeedback(Component.literal("Letzte Online-Zeiten (lokal entschlüsselt):"));
+        if(entries.isEmpty()){source.sendFeedback(Component.literal("Noch keine Build-146-Online-Zeit gespeichert. Sobald ein Build-146-Client erkannt wurde, wird sein letzter Online-Zeitpunkt dauerhaft gemerkt."));return;}
+        source.sendFeedback(Component.literal("Build-146-Spieler – zuletzt online:"));
         for(var e:entries) source.sendFeedback(Component.literal(e.getValue().name()+" – "+
             java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss").withZone(java.time.ZoneId.systemDefault())
             .format(java.time.Instant.ofEpochMilli(e.getValue().timestamp()))));
     }
-    public static void onDisconnect(){selfId=null;identity=null;PEERS.clear();HISTORY.clear();AFK_NAMES.clear();afkSource=null;ticks=0;}
+    public static void onDisconnect(){saveHistory(true);selfId=null;identity=null;PEERS.clear();AFK_NAMES.clear();afkSource=null;ticks=0;}
     private record LastSeen(String name,long timestamp,String build){}
     private static final class JsonObjectBuilder {
         private final JsonObject o=new JsonObject();
