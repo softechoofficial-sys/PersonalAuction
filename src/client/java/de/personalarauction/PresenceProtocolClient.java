@@ -302,7 +302,7 @@ public final class PresenceProtocolClient {
                         if (AFK_NOTIFY_TARGETS.contains(name.toLowerCase(Locale.ROOT))) {
                             if (isAfk && AFK_NOTIFIED.add(sender)) {
                                 client.execute(() -> {
-                                    if (client.player != null) client.player.displayClientMessage(Component.literal(name+" ist AFK"), false);
+                                    if (client.player != null) client.gui.getChat().addMessage(Component.literal(name+" ist AFK"));
                                 });
                             }
                         }
