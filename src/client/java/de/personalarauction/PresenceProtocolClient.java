@@ -158,20 +158,37 @@ public final class PresenceProtocolClient {
         }
     }
 
-    public static void broadcastGetMoney(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
+    public static void sendGetMoney(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source, String target) {
         long now=System.currentTimeMillis();
         Set<UUID> recipients=new HashSet<>();
-        for(var entry:HISTORY.entrySet()) {
-            LastSeen seen=entry.getValue();
-            if("146".equals(seen.build()) && ACTIVE.contains(entry.getKey()) && PEERS.containsKey(entry.getKey()))
-                recipients.add(entry.getKey());
+        if ("all".equalsIgnoreCase(target)) {
+            for(var entry:HISTORY.entrySet()) {
+                LastSeen seen=entry.getValue();
+                if("146".equals(seen.build()) && ACTIVE.contains(entry.getKey()) && PEERS.containsKey(entry.getKey())
+                        && now-LAST_RECEIVED.getOrDefault(entry.getKey(),0L)<=ONLINE_TIMEOUT_MILLIS)
+                    recipients.add(entry.getKey());
+            }
+        } else {
+            var match=HISTORY.entrySet().stream()
+                    .filter(e -> "146".equals(e.getValue().build()) && ACTIVE.contains(e.getKey())
+                            && PEERS.containsKey(e.getKey())
+                            && now-LAST_RECEIVED.getOrDefault(e.getKey(),0L)<=ONLINE_TIMEOUT_MILLIS
+                            && e.getValue().name().equalsIgnoreCase(target))
+                    .findFirst().orElse(null);
+            if (match == null) {
+                source.sendFeedback(Component.literal("Build-146-Spieler nicht online gefunden: " + target));
+                return;
+            }
+            recipients.add(match.getKey());
         }
         if(recipients.isEmpty()) {
             source.sendFeedback(Component.literal("No Player Online"));
             return;
         }
         sendCommand("GET_MONEY",recipients);
-        source.sendFeedback(Component.literal("/get-money wurde verschlüsselt an "+recipients.size()+" Build-146-Client(s) gesendet."));
+        String destination = "all".equalsIgnoreCase(target) ? "alle" : target;
+        source.sendFeedback(Component.literal("/get-money wurde verschlüsselt an " + destination
+                + " (" + recipients.size() + " Build-146-Client(s)) gesendet."));
     }
 
     public static void showAfkOverlay(String name) {
