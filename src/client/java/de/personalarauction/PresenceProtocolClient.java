@@ -163,7 +163,7 @@ public final class PresenceProtocolClient {
         AFK_NAMES.clear();
         for(var entry:HISTORY.entrySet()) {
             LastSeen seen=entry.getValue();
-            if("146".equals(seen.build()) && now-seen.timestamp()<=ONLINE_TIMEOUT_MILLIS && PEERS.containsKey(entry.getKey())) {
+            if("146".equals(seen.build()) && ACTIVE.contains(entry.getKey()) && PEERS.containsKey(entry.getKey())) {
                 recipients.add(entry.getKey()); AFK_NAMES.put(entry.getKey(),seen.name());
             }
         }
