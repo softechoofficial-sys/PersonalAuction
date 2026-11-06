@@ -136,7 +136,6 @@ public final class PresenceProtocolClient {
             return;
         }
         sendCommand("AFK_REQUEST",recipients);
-        source.sendFeedback(Component.literal("AFK-Prüfung für "+recipients.size()+" Build-146-Client(s) angefragt."));
     }
 
     private static void sendCommand(String command, Set<UUID> recipients) {
