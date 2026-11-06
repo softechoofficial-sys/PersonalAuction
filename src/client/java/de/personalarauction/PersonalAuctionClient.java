@@ -85,7 +85,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                 Identifier.fromNamespaceAndPath("personalauction", "controls"));
         // P öffnet das Fenster; Shift+P wird von derselben Tastenbelegung erkannt.
         OPEN_AUCTION_P_KEY = KeyMappingHelper.registerKeyMapping(
-                new KeyMapping("key.personalauction.open_auction_p", InputConstants.Type.KEYSYM,
+                new KeyMapping("key.personalauction.open-auction-gui", InputConstants.Type.KEYSYM,
                         InputConstants.KEY_P, keyCategory));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             AuctionScreen.tickAuction();
