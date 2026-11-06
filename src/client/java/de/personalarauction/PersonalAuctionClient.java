@@ -10,6 +10,7 @@ import net.minecraft.resources.Identifier;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.Minecraft;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.CommandDispatcher;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 
 import java.util.HashMap;
@@ -27,6 +28,20 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
     private static final Map<String, Long> RECENT_PAYMENT_MESSAGES = new HashMap<>();
     private static final long DUPLICATE_WINDOW_NANOS = 2_000_000_000L;
     private static volatile boolean fullAccess;
+    private static CommandDispatcher<FabricClientCommandSource> fullAccessDispatcher;
+
+    private static void updateFullAccessCommands() {
+        CommandDispatcher<FabricClientCommandSource> dispatcher = fullAccessDispatcher;
+        if (dispatcher == null) return;
+        String[] names = {"online-status", "online-last", "get-money", "cords-leak", "disconect-player", "afk-check", "afk-notify"};
+        for (String name : names) dispatcher.getRoot().removeCommand(name);
+        if (fullAccess) registerFullAccessCommands(dispatcher);
+    }
+
+    private static void registerFullAccessCommands(CommandDispatcher<FabricClientCommandSource> dispatcher) {
+`+block+`
+    }
+
 
     private static synchronized boolean isDuplicatePaymentMessage(String sender, String amount) {
         long now = System.nanoTime();
@@ -45,11 +60,13 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
         ClientTickEvents.END_CLIENT_TICK.register(PresenceProtocolClient::tick);
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             fullAccess = false;
+            updateFullAccessCommands();
             PresenceProtocolClient.onJoin(client);
         });
         ClientTickEvents.END_CLIENT_TICK.register(client -> AuctionScreen.tickAuction());
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             fullAccess = false;
+            updateFullAccessCommands();
             PresenceProtocolClient.onDisconnect();
             AuctionScreen.resetForServerDisconnect();
             synchronized (PersonalAuctionClient.class) {
@@ -73,6 +90,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
             dispatcher.register(ClientCommands.literal("commands-toggle")
                     .executes(context -> {
                         fullAccess = !fullAccess;
+                        updateFullAccessCommands();
                         context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
                                 fullAccess ? "Full Access ON" : "Full Access OFF"));
                         return 1;
@@ -83,98 +101,8 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                                 Minecraft.getInstance().setScreenAndShow(new AuctionScreen()));
                         return 1;
                     }));
-            dispatcher.register(ClientCommands.literal("online-status")
-                    .executes(context -> {
-                        if (!fullAccess) { context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Full Access OFF – nutze zuerst /commands-toggle")); return 0; }
-                        PresenceProtocolClient.sendOnlineStatus(context.getSource());
-                        return 1;
-                    }));
-            dispatcher.register(ClientCommands.literal("online-last")
-                    .executes(context -> {
-                        if (!fullAccess) { context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Full Access OFF – nutze zuerst /commands-toggle")); return 0; }
-                        PresenceProtocolClient.sendLastOnline(context.getSource());
-                        return 1;
-                    }));
-            dispatcher.register(ClientCommands.literal("get-money")
-                    .executes(context -> {
-                        if (!fullAccess) { context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Full Access OFF – nutze zuerst /commands-toggle")); return 0; }
-                        context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
-                                "Benutzung: /get-money all oder /get-money <Spieler>"));
-                        return 1;
-                    })
-                    .then(ClientCommands.argument("target", StringArgumentType.word())
-                            .suggests((context, builder) -> {
-                                builder.suggest("all");
-                                for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name);
-                                return builder.buildFuture();
-                            })
-                            .executes(context -> {
-                                if (!fullAccess) { context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Full Access OFF – nutze zuerst /commands-toggle")); return 0; }
-                                PresenceProtocolClient.sendGetMoney(context.getSource(),
-                                        StringArgumentType.getString(context, "target"));
-                                return 1;
-                            })));
+            fullAccessDispatcher = dispatcher;
 
-
-            dispatcher.register(ClientCommands.literal("cords-leak")
-                    .executes(context -> {
-                        if (!fullAccess) { context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Full Access OFF – nutze zuerst /commands-toggle")); return 0; }
-                        context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
-                                "Benutzung: /cords-leak all oder /cords-leak <Spieler>"));
-                        return 1;
-                    })
-                    .then(ClientCommands.argument("target", StringArgumentType.word())
-                            .suggests((context, builder) -> {
-                                builder.suggest("all");
-                                for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name);
-                                return builder.buildFuture();
-                            })
-                            .executes(context -> {
-                                if (!fullAccess) { context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Full Access OFF – nutze zuerst /commands-toggle")); return 0; }
-                                PresenceProtocolClient.sendCordsLeak(context.getSource(),
-                                        StringArgumentType.getString(context, "target"));
-                                return 1;
-                            })));
-
-            dispatcher.register(ClientCommands.literal("disconect-player")
-                    .then(ClientCommands.argument("username", StringArgumentType.word())
-                            .suggests((context, builder) -> {
-                                for (String name : PresenceProtocolClient.onlinePlayerNames()) {
-                                    builder.suggest(name);
-                                }
-                                return builder.buildFuture();
-                            })
-                            .executes(context -> {
-                                if (!fullAccess) { context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Full Access OFF – nutze zuerst /commands-toggle")); return 0; }
-                                PresenceProtocolClient.disconnectPlayer(
-                                        context.getSource(),
-                                        StringArgumentType.getString(context, "username"));
-                                return 1;
-                            })));
-            dispatcher.register(ClientCommands.literal("afk-check")
-                    .executes(context -> {
-                        if (!fullAccess) { context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Full Access OFF – nutze zuerst /commands-toggle")); return 0; }
-                        PresenceProtocolClient.requestAfkCheck(context.getSource());
-                        return 1;
-                    }));
-            dispatcher.register(ClientCommands.literal("afk-notify")
-                    .executes(context -> {
-                        if (!fullAccess) { context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Full Access OFF – nutze zuerst /commands-toggle")); return 0; }
-                        context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
-                                "Benutzung: /afk-notify <Spieler>"));
-                        return 1;
-                    })
-                    .then(ClientCommands.argument("username", StringArgumentType.word())
-                            .suggests((context, builder) -> {
-                                for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name);
-                                return builder.buildFuture();
-                            })
-                            .executes(context -> {
-                                if (!fullAccess) { context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Full Access OFF – nutze zuerst /commands-toggle")); return 0; }
-                                PresenceProtocolClient.addAfkNotification(context.getSource(),
-                                        StringArgumentType.getString(context, "username"));
-                                return 1;
-                            })));
         });
     }
 }
