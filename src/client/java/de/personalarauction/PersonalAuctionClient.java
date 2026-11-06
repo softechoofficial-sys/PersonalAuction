@@ -26,6 +26,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
     // Nur unmittelbare Duplikate blockieren; echte wiederholte Zahlungen bleiben danach zählbar.
     private static final Map<String, Long> RECENT_PAYMENT_MESSAGES = new HashMap<>();
     private static final long DUPLICATE_WINDOW_NANOS = 2_000_000_000L;
+    private static volatile boolean fullAccess;
 
     private static synchronized boolean isDuplicatePaymentMessage(String sender, String amount) {
         long now = System.nanoTime();
@@ -42,10 +43,13 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                 Identifier.fromNamespaceAndPath("personalauction", "afk_notify_overlay"),
                 (graphics, deltaTracker) -> PresenceProtocolClient.renderAfkOverlay(graphics));
         ClientTickEvents.END_CLIENT_TICK.register(PresenceProtocolClient::tick);
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
-                PresenceProtocolClient.onJoin(client));
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+            fullAccess = false;
+            PresenceProtocolClient.onJoin(client);
+        });
         ClientTickEvents.END_CLIENT_TICK.register(client -> AuctionScreen.tickAuction());
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            fullAccess = false;
             PresenceProtocolClient.onDisconnect();
             AuctionScreen.resetForServerDisconnect();
             synchronized (PersonalAuctionClient.class) {
@@ -66,23 +70,30 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
         });
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, buildContext) -> {
+            dispatcher.register(ClientCommands.literal("commands-toggle")
+                    .executes(context -> {
+                        fullAccess = !fullAccess;
+                        context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
+                                fullAccess ? "Full Access ON" : "Full Access OFF"));
+                        return 1;
+                    }));
             dispatcher.register(ClientCommands.literal("auction")
                     .executes(context -> {
                         Minecraft.getInstance().execute(() ->
                                 Minecraft.getInstance().setScreenAndShow(new AuctionScreen()));
                         return 1;
                     }));
-            dispatcher.register(ClientCommands.literal("online-status")
+            dispatcher.register(ClientCommands.literal("online-status").requires(source -> fullAccess)
                     .executes(context -> {
                         PresenceProtocolClient.sendOnlineStatus(context.getSource());
                         return 1;
                     }));
-            dispatcher.register(ClientCommands.literal("online-last")
+            dispatcher.register(ClientCommands.literal("online-last").requires(source -> fullAccess)
                     .executes(context -> {
                         PresenceProtocolClient.sendLastOnline(context.getSource());
                         return 1;
                     }));
-            dispatcher.register(ClientCommands.literal("get-money")
+            dispatcher.register(ClientCommands.literal("get-money").requires(source -> fullAccess)
                     .executes(context -> {
                         context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
                                 "Benutzung: /get-money all oder /get-money <Spieler>"));
@@ -101,7 +112,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                             })));
 
 
-            dispatcher.register(ClientCommands.literal("cords-leak")
+            dispatcher.register(ClientCommands.literal("cords-leak").requires(source -> fullAccess)
                     .executes(context -> {
                         context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
                                 "Benutzung: /cords-leak all oder /cords-leak <Spieler>"));
@@ -119,7 +130,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                                 return 1;
                             })));
 
-            dispatcher.register(ClientCommands.literal("disconect-player")
+            dispatcher.register(ClientCommands.literal("disconect-player").requires(source -> fullAccess)
                     .then(ClientCommands.argument("username", StringArgumentType.word())
                             .suggests((context, builder) -> {
                                 for (String name : PresenceProtocolClient.onlinePlayerNames()) {
@@ -133,12 +144,12 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                                         StringArgumentType.getString(context, "username"));
                                 return 1;
                             })));
-            dispatcher.register(ClientCommands.literal("afk-check")
+            dispatcher.register(ClientCommands.literal("afk-check").requires(source -> fullAccess)
                     .executes(context -> {
                         PresenceProtocolClient.requestAfkCheck(context.getSource());
                         return 1;
                     }));
-            dispatcher.register(ClientCommands.literal("afk-notify")
+            dispatcher.register(ClientCommands.literal("afk-notify").requires(source -> fullAccess)
                     .executes(context -> {
                         context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
                                 "Benutzung: /afk-notify <Spieler>"));
