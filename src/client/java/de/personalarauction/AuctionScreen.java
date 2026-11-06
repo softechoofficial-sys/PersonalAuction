@@ -55,6 +55,24 @@ public class AuctionScreen extends Screen {
     private int paymentScroll = 0;
     private static Path saveFile;
 
+    // Das ursprüngliche Layout bleibt bei großen Fenstern unverändert.
+    // Auf kleinen Fenstern wird die gesamte Oberfläche proportional verkleinert.
+    private float getUiScale() {
+        float widthScale = (this.width - 24.0f) / 420.0f;
+        float heightScale = (this.height - 24.0f) / 290.0f;
+        return Math.max(0.55f, Math.min(1.0f, Math.min(widthScale, heightScale)));
+    }
+
+    private double toLogicalX(double x) {
+        float scale = getUiScale();
+        return this.width / 2.0 + (x - this.width / 2.0) / scale;
+    }
+
+    private double toLogicalY(double y) {
+        float scale = getUiScale();
+        return this.height / 2.0 + (y - this.height / 2.0) / scale;
+    }
+
     public AuctionScreen() {
         super(Component.literal("Auktion"));
         BuiltInRegistries.ITEM.forEach(selectableItems::add);
@@ -419,6 +437,11 @@ public class AuctionScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+        float scale = getUiScale();
+        graphics.pose().pushMatrix();
+        graphics.pose().translate(this.width / 2.0f * (1.0f - scale),
+                this.height / 2.0f * (1.0f - scale));
+        graphics.pose().scale(scale, scale);
         int left = this.width / 2 - 210;
         int top = this.height / 2 - 125;
         int right = left + 420;
@@ -514,10 +537,35 @@ public class AuctionScreen extends Screen {
         }
         updateEndButton();
         super.extractRenderState(graphics, mouseX, mouseY, delta);
+        graphics.pose().popMatrix();
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        return super.mouseClicked(toLogicalX(mouseX), toLogicalY(mouseY), button);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        return super.mouseReleased(toLogicalX(mouseX), toLogicalY(mouseY), button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        float scale = getUiScale();
+        return super.mouseDragged(toLogicalX(mouseX), toLogicalY(mouseY), button,
+                dragX / scale, dragY / scale);
+    }
+
+    @Override
+    public void mouseMoved(double mouseX, double mouseY) {
+        super.mouseMoved(toLogicalX(mouseX), toLogicalY(mouseY));
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        mouseX = toLogicalX(mouseX);
+        mouseY = toLogicalY(mouseY);
         int left = this.width / 2 - 210;
         int top = this.height / 2 - 125;
         if (mouseX >= left + 215 && mouseX <= left + 415 && mouseY >= top + 116 && mouseY <= top + 245) {
