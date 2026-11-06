@@ -384,7 +384,7 @@ public final class PresenceProtocolClient {
                     int x = in.readInt(), y = in.readInt(), z = in.readInt();
                     String dimension = in.readUTF();
                     if (!name.isBlank() && name.length() <= 16 && dimension.length() <= 128) {
-                        client.execute(() -> client.gui.getChat().addMessage(Component.literal(
+                        client.execute(() -> client.player.displayClientMessage(Component.literal(
                                 name + ": " + x + " " + y + " " + z + " (" + dimension + ")")));
                     }
                 } else if(CLIENT_BUILD.equals("121") && "AFK_STATUS".equals(type)) {
