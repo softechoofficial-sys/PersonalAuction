@@ -179,6 +179,7 @@ public final class PresenceProtocolClient {
         for(var entry:HISTORY.entrySet()) {
             LastSeen seen=entry.getValue();
             if("146".equals(seen.build()) && ACTIVE.contains(entry.getKey()) && PEERS.containsKey(entry.getKey())
+                    && !currentServerId(Minecraft.getInstance()).isBlank()
                     && currentServerId(Minecraft.getInstance()).equals(PEER_SERVERS.get(entry.getKey()))) {
                 recipients.add(entry.getKey()); AFK_NAMES.put(entry.getKey(),seen.name());
             }
@@ -232,7 +233,7 @@ public final class PresenceProtocolClient {
                 if(!"PA1".equals(in.readUTF())) return;
                 String type=in.readUTF();
                 if("PRESENCE".equals(type)) {
-                    long timestamp=in.readLong(); String name=in.readUTF(); String build=in.readUTF(); String server=in.readUTF(); String server=in.readUTF();
+                    long timestamp=in.readLong(); String name=in.readUTF(); String build=in.readUTF(); String server=in.readUTF();
                     if(timestamp<=0 || name.isBlank() || name.length()>16 || (!build.equals("121")&&!build.equals("146"))) return;
                     LastSeen previous = HISTORY.get(sender);
                     if (previous == null || timestamp >= previous.timestamp()) {
@@ -244,7 +245,7 @@ public final class PresenceProtocolClient {
                     PEER_SERVERS.put(sender,server);
                     client.execute(() -> AuctionScreen.updateModPlayer(sender.toString(),name,true));
                 } else if("OFFLINE".equals(type)) {
-                    long timestamp=in.readLong(); String name=in.readUTF(); String build=in.readUTF();
+                    long timestamp=in.readLong(); String name=in.readUTF(); String build=in.readUTF(); String server=in.readUTF();
                     if(timestamp>0 && !name.isBlank() && name.length()<=16 && "146".equals(build)) {
                         LastSeen previous=HISTORY.get(sender);
                         if(previous==null || timestamp>=previous.timestamp()) {
@@ -308,7 +309,7 @@ public final class PresenceProtocolClient {
     public static void sendOnlineStatus(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
         String server=currentServerId(Minecraft.getInstance());
         long now=System.currentTimeMillis();
-        var entries=HISTORY.entrySet().stream().filter(e->"146".equals(e.getValue().build())
+        var entries=HISTORY.entrySet().stream().filter(e->!server.isBlank() && "146".equals(e.getValue().build())
                 && ACTIVE.contains(e.getKey()) && PEERS.containsKey(e.getKey())
                 && server.equals(PEER_SERVERS.get(e.getKey()))
                 && now-LAST_RECEIVED.getOrDefault(e.getKey(),0L)<=ONLINE_TIMEOUT_MILLIS)
