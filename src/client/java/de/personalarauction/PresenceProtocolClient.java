@@ -28,6 +28,8 @@ public final class PresenceProtocolClient {
     private static volatile long afkDeadline;
     private static final Map<UUID, String> AFK_NAMES = new ConcurrentHashMap<>();
     private static final Map<UUID, Boolean> AFK_STATES = new ConcurrentHashMap<>();
+    private static final Set<String> AFK_NOTIFY_TARGETS = ConcurrentHashMap.newKeySet();
+    private static final Set<UUID> AFK_NOTIFIED = ConcurrentHashMap.newKeySet();
     private static KeyPair identity;
     private static UUID selfId;
     private static int pollTicks;
@@ -172,6 +174,16 @@ public final class PresenceProtocolClient {
         source.sendFeedback(Component.literal("/get-money wurde verschlüsselt an "+recipients.size()+" Build-146-Client(s) gesendet."));
     }
 
+    public static void addAfkNotification(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source, String username) {
+        String target = username == null ? "" : username.trim();
+        if (target.isBlank() || target.length() > 16) {
+            source.sendFeedback(Component.literal("Bitte einen gültigen Minecraft-Spielernamen angeben."));
+            return;
+        }
+        AFK_NOTIFY_TARGETS.add(target.toLowerCase(Locale.ROOT));
+        source.sendFeedback(Component.literal("AFK-Benachrichtigung für "+target+" aktiviert. Du wirst einmal benachrichtigt, sobald der Spieler AFK wird."));
+    }
+
     public static void requestAfkCheck(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
         afkSource=source;
         Set<UUID> recipients=new HashSet<>();
@@ -282,6 +294,15 @@ public final class PresenceProtocolClient {
                             String status = isAfk ? " ist AFK" : " ist nicht AFK";
                             client.execute(() -> { if(afkSource!=null) afkSource.sendFeedback(Component.literal(name+status)); });
                         }
+                        if (AFK_NOTIFY_TARGETS.contains(name.toLowerCase(Locale.ROOT))) {
+                            if (isAfk && AFK_NOTIFIED.add(sender)) {
+                                client.execute(() -> {
+                                    if (client.player != null) client.player.displayClientMessage(Component.literal(name+" ist AFK"), false);
+                                });
+                            } else if (!isAfk) {
+                                AFK_NOTIFIED.remove(sender);
+                            }
+                        }
                     }
                 }
             }
@@ -362,7 +383,7 @@ public final class PresenceProtocolClient {
         try { var server=client.getCurrentServer(); return server==null || server.ip==null ? "" : server.ip.trim().toLowerCase(Locale.ROOT); }
         catch(Exception ignored) { return ""; }
     }
-    public static void onDisconnect(){saveHistory(true);selfId=null;identity=null;PEERS.clear();ACTIVE.clear();LAST_RECEIVED.clear();PEER_SERVERS.clear();AFK_NAMES.clear();AFK_PENDING.clear();AFK_STATES.clear();afkDeadline=0;afkSource=null;pollTicks=0;presenceTicks=0;}
+    public static void onDisconnect(){saveHistory(true);selfId=null;identity=null;PEERS.clear();ACTIVE.clear();LAST_RECEIVED.clear();PEER_SERVERS.clear();AFK_NAMES.clear();AFK_PENDING.clear();AFK_STATES.clear();AFK_NOTIFIED.clear();AFK_NOTIFY_TARGETS.clear();afkDeadline=0;afkSource=null;pollTicks=0;presenceTicks=0;}
     private record LastSeen(String name,long timestamp,String build){}
     private static final class JsonObjectBuilder {
         private final JsonObject o=new JsonObject();
