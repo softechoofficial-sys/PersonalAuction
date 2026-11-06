@@ -1,6 +1,7 @@
 package de.personalarauction;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
@@ -30,6 +31,8 @@ public final class PresenceProtocolClient {
     private static final Map<UUID, Boolean> AFK_STATES = new ConcurrentHashMap<>();
     private static final Set<String> AFK_NOTIFY_TARGETS = ConcurrentHashMap.newKeySet();
     private static final Set<UUID> AFK_NOTIFIED = ConcurrentHashMap.newKeySet();
+    private static volatile String afkOverlayText = "";
+    private static volatile long afkOverlayUntil;
     private static KeyPair identity;
     private static UUID selfId;
     private static int pollTicks;
@@ -174,6 +177,22 @@ public final class PresenceProtocolClient {
         source.sendFeedback(Component.literal("/get-money wurde verschlüsselt an "+recipients.size()+" Build-146-Client(s) gesendet."));
     }
 
+    public static void showAfkOverlay(String name) {
+        afkOverlayText = name + " ist AFK";
+        afkOverlayUntil = System.currentTimeMillis() + 5_000L;
+    }
+
+    public static void renderAfkOverlay(GuiGraphicsExtractor graphics) {
+        String text = afkOverlayText;
+        if (text.isBlank() || System.currentTimeMillis() > afkOverlayUntil) return;
+        Minecraft client = Minecraft.getInstance();
+        graphics.pose().pushMatrix();
+        graphics.pose().scale(2.0f, 2.0f);
+        graphics.centeredText(client.font, text,
+                graphics.guiWidth() / 4, graphics.guiHeight() / 4, 0xFFFF3030);
+        graphics.pose().popMatrix();
+    }
+
     public static void addAfkNotification(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source, String username) {
         String target = username == null ? "" : username.trim();
         if (target.isBlank() || target.length() > 16) {
@@ -302,7 +321,7 @@ public final class PresenceProtocolClient {
                         if (AFK_NOTIFY_TARGETS.contains(name.toLowerCase(Locale.ROOT))) {
                             if (isAfk && AFK_NOTIFIED.add(sender)) {
                                 client.execute(() -> {
-                                    if (client.player != null) client.gui.getChat().addMessage(Component.literal(name+" ist AFK"));
+                                    showAfkOverlay(name);
                                 });
                             }
                         }
