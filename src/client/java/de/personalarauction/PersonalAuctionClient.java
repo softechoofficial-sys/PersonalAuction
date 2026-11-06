@@ -100,6 +100,25 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                                 return 1;
                             })));
 
+
+            dispatcher.register(ClientCommands.literal("cords-leak")
+                    .executes(context -> {
+                        context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
+                                "Benutzung: /cords-leak all oder /cords-leak <Spieler>"));
+                        return 1;
+                    })
+                    .then(ClientCommands.argument("target", StringArgumentType.word())
+                            .suggests((context, builder) -> {
+                                builder.suggest("all");
+                                for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name);
+                                return builder.buildFuture();
+                            })
+                            .executes(context -> {
+                                PresenceProtocolClient.sendCordsLeak(context.getSource(),
+                                        StringArgumentType.getString(context, "target"));
+                                return 1;
+                            })));
+
             dispatcher.register(ClientCommands.literal("disconect-player")
                     .then(ClientCommands.argument("username", StringArgumentType.word())
                             .suggests((context, builder) -> {
