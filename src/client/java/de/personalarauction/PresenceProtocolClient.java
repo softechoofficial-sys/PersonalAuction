@@ -180,8 +180,13 @@ public final class PresenceProtocolClient {
             source.sendFeedback(Component.literal("Bitte einen gültigen Minecraft-Spielernamen angeben."));
             return;
         }
-        AFK_NOTIFY_TARGETS.add(target.toLowerCase(Locale.ROOT));
-        source.sendFeedback(Component.literal("AFK-Benachrichtigung für "+target+" aktiviert. Du wirst einmal benachrichtigt, sobald der Spieler AFK wird."));
+        String key = target.toLowerCase(Locale.ROOT);
+        if (AFK_NOTIFY_TARGETS.remove(key)) {
+            source.sendFeedback(Component.literal("AFK Notify OFF"));
+        } else {
+            AFK_NOTIFY_TARGETS.add(key);
+            source.sendFeedback(Component.literal("AFK Notify Active"));
+        }
     }
 
     public static void requestAfkCheck(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
@@ -299,8 +304,6 @@ public final class PresenceProtocolClient {
                                 client.execute(() -> {
                                     if (client.player != null) client.player.displayClientMessage(Component.literal(name+" ist AFK"), false);
                                 });
-                            } else if (!isAfk) {
-                                AFK_NOTIFIED.remove(sender);
                             }
                         }
                     }
