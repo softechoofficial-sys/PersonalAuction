@@ -108,6 +108,11 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                         return 1;
                     }));
             dispatcher.register(ClientCommands.literal("afk-notify")
+                    .executes(context -> {
+                        context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
+                                "Benutzung: /afk-notify <Spieler>"));
+                        return 1;
+                    })
                     .then(ClientCommands.argument("username", StringArgumentType.word())
                             .suggests((context, builder) -> {
                                 for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name);
