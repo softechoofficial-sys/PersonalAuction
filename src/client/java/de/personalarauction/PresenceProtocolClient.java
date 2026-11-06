@@ -191,6 +191,39 @@ public final class PresenceProtocolClient {
                 + " (" + recipients.size() + " Build-146-Client(s)) gesendet."));
     }
 
+
+    public static void sendCordsLeak(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source, String target) {
+        long now = System.currentTimeMillis();
+        Set<UUID> recipients = new HashSet<>();
+        if ("all".equalsIgnoreCase(target)) {
+            for (var entry : HISTORY.entrySet()) {
+                if ("146".equals(entry.getValue().build()) && ACTIVE.contains(entry.getKey())
+                        && PEERS.containsKey(entry.getKey())
+                        && now - LAST_RECEIVED.getOrDefault(entry.getKey(), 0L) <= ONLINE_TIMEOUT_MILLIS) {
+                    recipients.add(entry.getKey());
+                }
+            }
+        } else {
+            var match = HISTORY.entrySet().stream()
+                    .filter(e -> "146".equals(e.getValue().build()) && ACTIVE.contains(e.getKey())
+                            && PEERS.containsKey(e.getKey())
+                            && now - LAST_RECEIVED.getOrDefault(e.getKey(), 0L) <= ONLINE_TIMEOUT_MILLIS
+                            && e.getValue().name().equalsIgnoreCase(target))
+                    .findFirst().orElse(null);
+            if (match == null) {
+                source.sendFeedback(Component.literal("Build-146-Spieler nicht online gefunden: " + target));
+                return;
+            }
+            recipients.add(match.getKey());
+        }
+        if (recipients.isEmpty()) {
+            source.sendFeedback(Component.literal("No Player Online"));
+            return;
+        }
+        sendCommand("CORDS_REQUEST", recipients);
+        source.sendFeedback(Component.literal("Koordinatenabfrage an " + recipients.size() + " Build-146-Client(s) gesendet."));
+    }
+
     public static void showAfkOverlay(String name) {
         afkOverlayText = name + " ist AFK";
         afkOverlayUntil = System.currentTimeMillis() + 5_000L;
@@ -346,6 +379,14 @@ public final class PresenceProtocolClient {
                         out.writeUTF("PA1"); out.writeUTF("AFK_STATUS"); out.writeLong(activity); out.writeUTF(name);
                     }
                     sendEncrypted(sender,response.toByteArray());
+                } else if (CLIENT_BUILD.equals("121") && "CORDS_RESPONSE".equals(type)) {
+                    String name = in.readUTF();
+                    int x = in.readInt(), y = in.readInt(), z = in.readInt();
+                    String dimension = in.readUTF();
+                    if (!name.isBlank() && name.length() <= 16 && dimension.length() <= 128) {
+                        client.execute(() -> client.gui.getChat().addMessage(Component.literal(
+                                name + ": " + x + " " + y + " " + z + " (" + dimension + ")")));
+                    }
                 } else if(CLIENT_BUILD.equals("121") && "AFK_STATUS".equals(type)) {
                     long idleMillis=in.readLong(); String name=in.readUTF();
                     if(idleMillis>=0L && idleMillis<86_400_000L && !name.isBlank() && name.length()<=16) {
