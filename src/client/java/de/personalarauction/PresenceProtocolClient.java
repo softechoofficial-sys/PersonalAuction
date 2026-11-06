@@ -24,7 +24,8 @@ public final class PresenceProtocolClient {
     private static int ticks;
     private static long lastActivity = System.currentTimeMillis();
     private static float lastYaw, lastPitch;
-    private static boolean haveRotation;
+    private static double lastX, lastY, lastZ;
+    private static boolean haveRotation, havePosition;
     private static net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource afkSource;
     private static final long ONLINE_TIMEOUT_MILLIS = 20_000L;
     private PresenceProtocolClient() {}
@@ -32,7 +33,7 @@ public final class PresenceProtocolClient {
 
     public static void onJoin(Minecraft client) {
         ticks=0; PEERS.clear(); HISTORY.clear();
-        lastActivity=System.currentTimeMillis(); haveRotation=false;
+        lastActivity=System.currentTimeMillis(); haveRotation=false; havePosition=false;
         if (client.player == null) return;
         try {
             identity=PresenceIdentityStore.loadOrCreate();
@@ -185,8 +186,8 @@ public final class PresenceProtocolClient {
                     }
                     sendEncrypted(sender,response.toByteArray());
                 } else if(CLIENT_BUILD.equals("121") && "AFK_STATUS".equals(type)) {
-                    long activity=in.readLong(); String name=in.readUTF();
-                    if(activity>0 && !name.isBlank() && name.length()<=16 && System.currentTimeMillis()-activity>=10_000L) {
+                    long idleMillis=in.readLong(); String name=in.readUTF();
+                    if(idleMillis>=10_000L && idleMillis<86_400_000L && !name.isBlank() && name.length()<=16) {
                         client.execute(() -> { if(afkSource!=null) afkSource.sendFeedback(Component.literal(name+" ist AFK")); });
                     }
                 }
