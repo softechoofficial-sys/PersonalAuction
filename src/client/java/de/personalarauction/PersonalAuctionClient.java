@@ -109,7 +109,6 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                                 Minecraft.getInstance().setScreenAndShow(new AuctionScreen()));
                         return 1;
                     }));
-            fullAccessDispatcher = dispatcher;
 
         });
     }
