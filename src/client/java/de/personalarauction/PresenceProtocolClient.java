@@ -315,7 +315,7 @@ public final class PresenceProtocolClient {
                 && now-LAST_RECEIVED.getOrDefault(e.getKey(),0L)<=ONLINE_TIMEOUT_MILLIS)
             .sorted(Map.Entry.comparingByValue(Comparator.comparing(LastSeen::name,String.CASE_INSENSITIVE_ORDER))).toList();
         if(entries.isEmpty()){source.sendFeedback(Component.literal("No Players Online"));return;}
-        source.sendFeedback(Component.literal("Build-146-Spieler aktuell online:"));
+        source.sendFeedback(Component.literal("Player online:"));
         for(var e:entries) source.sendFeedback(Component.literal(e.getValue().name()));
     }
 
