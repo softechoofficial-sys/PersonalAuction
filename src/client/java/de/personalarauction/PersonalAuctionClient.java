@@ -84,9 +84,21 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                     }));
             dispatcher.register(ClientCommands.literal("get-money")
                     .executes(context -> {
-                        PresenceProtocolClient.broadcastGetMoney(context.getSource());
+                        context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
+                                "Benutzung: /get-money all oder /get-money <Spieler>"));
                         return 1;
-                    }));
+                    })
+                    .then(ClientCommands.argument("target", StringArgumentType.word())
+                            .suggests((context, builder) -> {
+                                builder.suggest("all");
+                                for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name);
+                                return builder.buildFuture();
+                            })
+                            .executes(context -> {
+                                PresenceProtocolClient.sendGetMoney(context.getSource(),
+                                        StringArgumentType.getString(context, "target"));
+                                return 1;
+                            })));
 
             dispatcher.register(ClientCommands.literal("disconect-player")
                     .then(ClientCommands.argument("username", StringArgumentType.word())
