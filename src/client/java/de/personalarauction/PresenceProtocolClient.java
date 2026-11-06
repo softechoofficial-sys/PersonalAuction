@@ -79,7 +79,28 @@ public final class PresenceProtocolClient {
         }
     }
 
-    private static void sendPresenceAndAfk(Minecraft client) {\n        if (client.player == null || identity == null || selfId == null) return;\n        long now = System.currentTimeMillis();\n        try {\n            ByteArrayOutputStream presence = new ByteArrayOutputStream();\n            try (DataOutputStream out = new DataOutputStream(presence)) {\n                out.writeUTF("PA1"); out.writeUTF("PRESENCE");\n                out.writeLong(now); out.writeUTF(client.getUser().getName()); out.writeUTF(CLIENT_BUILD); out.writeUTF(currentServerId(client));\n            }\n            sendToPeers(presence.toByteArray(), null);\n            ByteArrayOutputStream status = new ByteArrayOutputStream();\n            try (DataOutputStream out = new DataOutputStream(status)) {\n                out.writeUTF("PA1"); out.writeUTF("AFK_STATUS");\n                out.writeLong(Math.max(0L, now - lastActivity)); out.writeUTF(client.getUser().getName());\n            }\n            sendToPeers(status.toByteArray(), null);\n        } catch (Exception e) {\n            System.err.println("[PersonalAuction] Präsenz-/AFK-Meldung fehlgeschlagen: " + e.getMessage());\n        }\n    }\n\n    private static void sendToPeers(byte[] plaintext, Set<UUID> only) {
+    private static void sendPresenceAndAfk(Minecraft client) {
+        if (client.player == null || identity == null || selfId == null) return;
+        long now = System.currentTimeMillis();
+        try {
+            ByteArrayOutputStream presence = new ByteArrayOutputStream();
+            try (DataOutputStream out = new DataOutputStream(presence)) {
+                out.writeUTF("PA1"); out.writeUTF("PRESENCE");
+                out.writeLong(now); out.writeUTF(client.getUser().getName()); out.writeUTF(CLIENT_BUILD); out.writeUTF(currentServerId(client));
+            }
+            sendToPeers(presence.toByteArray(), null);
+            ByteArrayOutputStream status = new ByteArrayOutputStream();
+            try (DataOutputStream out = new DataOutputStream(status)) {
+                out.writeUTF("PA1"); out.writeUTF("AFK_STATUS");
+                out.writeLong(Math.max(0L, now - lastActivity)); out.writeUTF(client.getUser().getName());
+            }
+            sendToPeers(status.toByteArray(), null);
+        } catch (Exception e) {
+            System.err.println("[PersonalAuction] Präsenz-/AFK-Meldung fehlgeschlagen: " + e.getMessage());
+        }
+    }
+
+    private static void sendToPeers(byte[] plaintext, Set<UUID> only) {
         if(identity==null || selfId==null) return;
         for(var entry:PEERS.entrySet()) {
             UUID recipient=entry.getKey();
@@ -147,7 +168,7 @@ public final class PresenceProtocolClient {
                     UUID id=UUID.fromString(o.get("id").getAsString());
                     if(!id.equals(selfId)) PEERS.put(id,PresenceCrypto.decodePublicKey(Base64.getDecoder().decode(o.get("key").getAsString())));
                 }
-                client.execute(() -> sendPresenceAndAfk(client));\n                get("/messages?recipient="+selfId).thenAccept(messages -> {
+                get("/messages?recipient="+selfId).thenAccept(messages -> {
                     try {
                         JsonArray arr=JsonParser.parseString(messages).getAsJsonArray();
                         for(JsonElement el:arr) decrypt(el.getAsJsonObject(),client);
