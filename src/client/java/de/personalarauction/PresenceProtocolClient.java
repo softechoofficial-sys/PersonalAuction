@@ -167,7 +167,7 @@ public final class PresenceProtocolClient {
                 recipients.add(entry.getKey());
         }
         if(recipients.isEmpty()) {
-            source.sendFeedback(Component.literal("No Players Online"));
+            source.sendFeedback(Component.literal("No Player Online"));
             return;
         }
         sendCommand("GET_MONEY",recipients);
@@ -234,14 +234,17 @@ public final class PresenceProtocolClient {
             AFK_CHECK_FOUND.clear();
             return;
         }
-        if (AFK_CHECK_FOUND.isEmpty()) {
-            source.sendFeedback(Component.literal("Niemand AFK"));
-        } else {
-            for (String name : new TreeSet<>(AFK_CHECK_FOUND)) {
-                source.sendFeedback(Component.literal(name + " ist AFK"));
-            }
-        }
+        List<String> afkNames = new ArrayList<>(new TreeSet<>(AFK_CHECK_FOUND));
         AFK_CHECK_FOUND.clear();
+        Minecraft.getInstance().execute(() -> {
+            if (afkNames.isEmpty()) {
+                source.sendFeedback(Component.literal("Niemand AFK"));
+            } else {
+                for (String name : afkNames) {
+                    source.sendFeedback(Component.literal(name + " ist AFK"));
+                }
+            }
+        });
     }
 
     private static void sendCommand(String command, Set<UUID> recipients) {
