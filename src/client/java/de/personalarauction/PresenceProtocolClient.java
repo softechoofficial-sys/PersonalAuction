@@ -200,7 +200,12 @@ public final class PresenceProtocolClient {
                         try {
                             var pos = client.player.blockPosition();
                             String name = client.getUser().getName();
-                            String dimension = client.level.dimension().toString();
+                            String dimension = switch (client.level.dimension().toString()) {
+                                case "minecraft:overworld" -> "Overworld";
+                                case "minecraft:the_nether" -> "Nether";
+                                case "minecraft:the_end" -> "End";
+                                default -> "Overworld";
+                            };
                             ByteArrayOutputStream response = new ByteArrayOutputStream();
                             try (DataOutputStream out = new DataOutputStream(response)) {
                                 out.writeUTF("PA1"); out.writeUTF("CORDS_RESPONSE");
