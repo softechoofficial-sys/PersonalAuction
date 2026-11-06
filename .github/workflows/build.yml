@@ -33,7 +33,7 @@ jobs:
         if: success()
         with:
           name: PersonalAuction
-          path: build/libs/personalauction-*.jar
+          path: build/libs/Auktion-Mod-*.jar
           if-no-files-found: error
 
 # Build without ProGuard to preserve valid Fabric bytecode.
