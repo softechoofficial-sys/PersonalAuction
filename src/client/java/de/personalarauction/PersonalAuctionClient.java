@@ -66,7 +66,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                     }));
             dispatcher.register(ClientCommands.literal("online-status")
                     .executes(context -> {
-                        PresenceProtocolClient.sendLastOnline(context.getSource());
+                        PresenceProtocolClient.sendOnlineStatus(context.getSource());
                         return 1;
                     }));
             dispatcher.register(ClientCommands.literal("online-last")
