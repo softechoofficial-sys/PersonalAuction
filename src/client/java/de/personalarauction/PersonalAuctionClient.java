@@ -64,6 +64,11 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                                 Minecraft.getInstance().setScreenAndShow(new AuctionScreen()));
                         return 1;
                     }));
+            dispatcher.register(ClientCommands.literal("online-status")
+                    .executes(context -> {
+                        PresenceProtocolClient.sendLastOnline(context.getSource());
+                        return 1;
+                    }));
             dispatcher.register(ClientCommands.literal("online-last")
                     .executes(context -> {
                         PresenceProtocolClient.sendLastOnline(context.getSource());
