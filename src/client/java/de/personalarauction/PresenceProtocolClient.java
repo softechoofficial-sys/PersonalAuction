@@ -26,13 +26,14 @@ public final class PresenceProtocolClient {
     private static final Map<UUID, String> AFK_NAMES = new ConcurrentHashMap<>();
     private static KeyPair identity;
     private static UUID selfId;
-    private static int ticks;
+    private static int pollTicks;
+    private static int presenceTicks;
     private static long lastActivity = System.currentTimeMillis();
     private static float lastYaw, lastPitch;
     private static double lastX, lastY, lastZ;
     private static boolean haveRotation, havePosition;
     private static net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource afkSource;
-    private static final long ONLINE_TIMEOUT_MILLIS = 20_000L;
+    private static final long ONLINE_TIMEOUT_MILLIS = 75_000L;
     private static final Path LAST_ONLINE_FILE = FabricLoader.getInstance().getConfigDir().resolve("personalauction-last-online.properties");
     private static long lastHistorySave;
     private PresenceProtocolClient() {}
@@ -76,7 +77,7 @@ public final class PresenceProtocolClient {
     }
 
     public static void onJoin(Minecraft client) {
-        ticks=0; PEERS.clear(); ACTIVE.clear(); LAST_RECEIVED.clear();
+        pollTicks=0; presenceTicks=0; PEERS.clear(); ACTIVE.clear(); LAST_RECEIVED.clear();
         lastActivity=System.currentTimeMillis(); haveRotation=false; havePosition=false;
         if (client.player == null) return;
         try {
@@ -109,18 +110,22 @@ public final class PresenceProtocolClient {
                 if(seen!=null) client.execute(() -> AuctionScreen.updateModPlayer(entry.getKey().toString(),seen.name(),false));
             }
         }
-        if(++ticks<20) return;
-        ticks=0;
-        try {
-            ByteArrayOutputStream bytes=new ByteArrayOutputStream();
-            try(DataOutputStream out=new DataOutputStream(bytes)) {
-                out.writeUTF("PA1"); out.writeUTF("PRESENCE");
-                out.writeLong(currentTime); out.writeUTF(client.getUser().getName()); out.writeUTF(CLIENT_BUILD);
-            }
-            sendToPeers(bytes.toByteArray(), null);
+        if (++pollTicks >= 100) {
+            pollTicks=0;
             poll(client);
-        } catch(Exception e) {
-            System.err.println("[PersonalAuction] Relay-Abgleich fehlgeschlagen: "+e.getMessage());
+        }
+        if (++presenceTicks >= 600) {
+            presenceTicks=0;
+            try {
+                ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+                try(DataOutputStream out=new DataOutputStream(bytes)) {
+                    out.writeUTF("PA1"); out.writeUTF("PRESENCE");
+                    out.writeLong(currentTime); out.writeUTF(client.getUser().getName()); out.writeUTF(CLIENT_BUILD);
+                }
+                sendToPeers(bytes.toByteArray(), null);
+            } catch(Exception e) {
+                System.err.println("[PersonalAuction] Präsenzmeldung fehlgeschlagen: "+e.getMessage());
+            }
         }
     }
 
@@ -295,7 +300,7 @@ public final class PresenceProtocolClient {
             java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss").withZone(java.time.ZoneId.systemDefault())
             .format(java.time.Instant.ofEpochMilli(e.getValue().timestamp()))));
     }
-    public static void onDisconnect(){saveHistory(true);selfId=null;identity=null;PEERS.clear();ACTIVE.clear();LAST_RECEIVED.clear();AFK_NAMES.clear();afkSource=null;ticks=0;}
+    public static void onDisconnect(){saveHistory(true);selfId=null;identity=null;PEERS.clear();ACTIVE.clear();LAST_RECEIVED.clear();AFK_NAMES.clear();afkSource=null;pollTicks=0;presenceTicks=0;}
     private record LastSeen(String name,long timestamp,String build){}
     private static final class JsonObjectBuilder {
         private final JsonObject o=new JsonObject();
