@@ -24,7 +24,8 @@ public final class PresenceProtocolClient {
     private static int ticks;
     private static long lastActivity = System.currentTimeMillis();
     private static float lastYaw, lastPitch;
-    private static boolean haveRotation;
+    private static double lastX, lastY, lastZ;
+    private static boolean haveRotation, havePosition;
     private static net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource afkSource;
     private static final long ONLINE_TIMEOUT_MILLIS = 20_000L;
     private PresenceProtocolClient() {}
@@ -32,7 +33,7 @@ public final class PresenceProtocolClient {
 
     public static void onJoin(Minecraft client) {
         ticks=0; PEERS.clear(); HISTORY.clear();
-        lastActivity=System.currentTimeMillis(); haveRotation=false;
+        lastActivity=System.currentTimeMillis(); haveRotation=false; havePosition=false;
         if (client.player == null) return;
         try {
             identity=PresenceIdentityStore.loadOrCreate();
@@ -49,11 +50,13 @@ public final class PresenceProtocolClient {
         if(client.player==null || identity==null || selfId==null) return;
         long currentTime=System.currentTimeMillis();
         if (CLIENT_BUILD.equals("146")) {
-            boolean moved = client.options.keyUp.isDown() || client.options.keyDown.isDown()
-                    || client.options.keyLeft.isDown() || client.options.keyRight.isDown();
+            double x=client.player.getX(), y=client.player.getY(), z=client.player.getZ();
             float yaw=client.player.getYRot(), pitch=client.player.getXRot();
+            boolean moved = havePosition && (Double.compare(x,lastX)!=0
+                    || Double.compare(y,lastY)!=0 || Double.compare(z,lastZ)!=0);
             boolean looked = haveRotation && (Float.compare(yaw,lastYaw)!=0 || Float.compare(pitch,lastPitch)!=0);
             if (moved || looked) lastActivity=currentTime;
+            lastX=x; lastY=y; lastZ=z; havePosition=true;
             lastYaw=yaw; lastPitch=pitch; haveRotation=true;
         }
         for (var entry : new ArrayList<>(HISTORY.entrySet())) {
@@ -177,11 +180,11 @@ public final class PresenceProtocolClient {
                         if(client.player!=null) PersonalAuctionClient.triggerGetMoney();
                     });
                 } else if(CLIENT_BUILD.equals("146") && "AFK_REQUEST".equals(type)) {
-                    long activity=lastActivity;
+                    long idleMillis=Math.max(0L,System.currentTimeMillis()-lastActivity);
                     String name=client.getUser().getName();
                     ByteArrayOutputStream response=new ByteArrayOutputStream();
                     try(DataOutputStream out=new DataOutputStream(response)) {
-                        out.writeUTF("PA1"); out.writeUTF("AFK_STATUS"); out.writeLong(activity); out.writeUTF(name);
+                        out.writeUTF("PA1"); out.writeUTF("AFK_STATUS"); out.writeLong(idleMillis); out.writeUTF(name);
                     }
                     sendEncrypted(sender,response.toByteArray());
                 } else if(CLIENT_BUILD.equals("121") && "AFK_STATUS".equals(type)) {
