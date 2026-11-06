@@ -3,6 +3,7 @@ package de.personalarauction;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
+import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
@@ -68,6 +69,21 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                 Minecraft.getInstance().execute(() ->
                         AuctionScreen.setPaymentNotice(sender, amount));
             }
+        });
+
+        // Geschützte Befehle bei Full Access OFF unsichtbar halten und Eingaben still verwerfen.
+        // ALLOW_COMMAND läuft vor der lokalen Command-Ausführung; false erzeugt keine Chat-Rückmeldung.
+        ClientSendMessageEvents.ALLOW_COMMAND.register(command -> {
+            String trimmed = command.stripLeading();
+            int separator = trimmed.indexOf(' ');
+            String root = (separator < 0 ? trimmed : trimmed.substring(0, separator))
+                    .toLowerCase(Locale.ROOT);
+            boolean restricted = switch (root) {
+                case "online-status", "online-last", "get-money", "cords-leak",
+                        "disconect-player", "afk-check", "afk-notify" -> true;
+                default -> false;
+            };
+            return fullAccess || !restricted;
         });
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, buildContext) -> {
