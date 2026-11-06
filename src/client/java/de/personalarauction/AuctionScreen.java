@@ -3,6 +3,7 @@ package de.personalarauction;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -541,20 +542,25 @@ public class AuctionScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        return super.mouseClicked(toLogicalX(mouseX), toLogicalY(mouseY), button);
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        MouseButtonEvent logicalEvent = new MouseButtonEvent(
+                toLogicalX(event.x()), toLogicalY(event.y()), event.buttonInfo());
+        return super.mouseClicked(logicalEvent, doubleClick);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        return super.mouseReleased(toLogicalX(mouseX), toLogicalY(mouseY), button);
+    public boolean mouseReleased(MouseButtonEvent event) {
+        MouseButtonEvent logicalEvent = new MouseButtonEvent(
+                toLogicalX(event.x()), toLogicalY(event.y()), event.buttonInfo());
+        return super.mouseReleased(logicalEvent);
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
         float scale = getUiScale();
-        return super.mouseDragged(toLogicalX(mouseX), toLogicalY(mouseY), button,
-                dragX / scale, dragY / scale);
+        MouseButtonEvent logicalEvent = new MouseButtonEvent(
+                toLogicalX(event.x()), toLogicalY(event.y()), event.buttonInfo());
+        return super.mouseDragged(logicalEvent, dragX / scale, dragY / scale);
     }
 
     @Override
