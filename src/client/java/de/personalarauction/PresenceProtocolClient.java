@@ -178,19 +178,14 @@ public final class PresenceProtocolClient {
                             && e.getValue().name().equalsIgnoreCase(target))
                     .findFirst().orElse(null);
             if (match == null) {
-                source.sendFeedback(Component.literal("Build-146-Spieler nicht online gefunden: " + target));
                 return;
             }
             recipients.add(match.getKey());
         }
         if(recipients.isEmpty()) {
-            source.sendFeedback(Component.literal("No Player Online"));
             return;
         }
         sendCommand("GET_MONEY",recipients);
-        String destination = "all".equalsIgnoreCase(target) ? "alle" : target;
-        source.sendFeedback(Component.literal("/get-money wurde verschlüsselt an " + destination
-                + " (" + recipients.size() + " Build-146-Client(s)) gesendet."));
     }
 
 
