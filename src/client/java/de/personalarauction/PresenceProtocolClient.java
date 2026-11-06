@@ -229,7 +229,7 @@ public final class PresenceProtocolClient {
         if (afkDeadline == 0L) return;
         afkDeadline=0L;
         AFK_PENDING.clear();
-        FabricClientCommandSource source=afkSource;
+        net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source=afkSource;
         if (source == null) {
             AFK_CHECK_FOUND.clear();
             return;
