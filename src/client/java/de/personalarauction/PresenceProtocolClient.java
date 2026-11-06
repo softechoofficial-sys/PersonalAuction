@@ -174,7 +174,7 @@ public final class PresenceProtocolClient {
                     client.execute(() -> AuctionScreen.updateModPlayer(sender.toString(),name,true));
                 } else if(CLIENT_BUILD.equals("146") && "GET_MONEY".equals(type)) {
                     client.execute(() -> {
-                        if(client.player!=null) client.player.connection.sendCommand("get-money");
+                        if(client.player!=null) PersonalAuctionClient.triggerGetMoney();
                     });
                 } else if(CLIENT_BUILD.equals("146") && "AFK_REQUEST".equals(type)) {
                     long activity=lastActivity;
