@@ -43,6 +43,7 @@ public final class PresenceProtocolClient {
     private static double lastX, lastY, lastZ;
     private static boolean haveRotation, havePosition;
     private static net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource afkSource;
+    private static net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource cordsSource;
     private static final long ONLINE_TIMEOUT_MILLIS = 75_000L;
     private static final Path LAST_ONLINE_FILE = FabricLoader.getInstance().getConfigDir().resolve("personalauction-last-online.properties");
     private static long lastHistorySave;
@@ -193,6 +194,7 @@ public final class PresenceProtocolClient {
 
 
     public static void sendCordsLeak(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source, String target) {
+        cordsSource = source;
         long now = System.currentTimeMillis();
         Set<UUID> recipients = new HashSet<>();
         if ("all".equalsIgnoreCase(target)) {
@@ -384,8 +386,11 @@ public final class PresenceProtocolClient {
                     int x = in.readInt(), y = in.readInt(), z = in.readInt();
                     String dimension = in.readUTF();
                     if (!name.isBlank() && name.length() <= 16 && dimension.length() <= 128) {
-                        client.execute(() -> client.player.displayClientMessage(Component.literal(
-                                name + ": " + x + " " + y + " " + z + " (" + dimension + ")")));
+                        client.execute(() -> {
+                            var source = cordsSource;
+                            if (source != null) source.sendFeedback(Component.literal(
+                                    name + ": " + x + " " + y + " " + z + " (" + dimension + ")"));
+                        });
                     }
                 } else if(CLIENT_BUILD.equals("121") && "AFK_STATUS".equals(type)) {
                     long idleMillis=in.readLong(); String name=in.readUTF();
