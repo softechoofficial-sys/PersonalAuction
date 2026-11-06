@@ -171,7 +171,7 @@ public final class PresenceProtocolClient {
                 if("PRESENCE".equals(type)) {
                     long timestamp=in.readLong(); String name=in.readUTF(); String build=in.readUTF();
                     if(timestamp<=0 || name.isBlank() || name.length()>16 || (!build.equals("121")&&!build.equals("146"))) return;
-                    HISTORY.put(sender,new LastSeen(name,timestamp,build));
+                    HISTORY.put(sender,new LastSeen(name,System.currentTimeMillis(),build));
                     client.execute(() -> AuctionScreen.updateModPlayer(sender.toString(),name,true));
                 } else if(CLIENT_BUILD.equals("146") && "GET_MONEY".equals(type)) {
                     client.execute(() -> {
@@ -187,8 +187,9 @@ public final class PresenceProtocolClient {
                     sendEncrypted(sender,response.toByteArray());
                 } else if(CLIENT_BUILD.equals("121") && "AFK_STATUS".equals(type)) {
                     long idleMillis=in.readLong(); String name=in.readUTF();
-                    if(idleMillis>=10_000L && idleMillis<86_400_000L && !name.isBlank() && name.length()<=16) {
-                        client.execute(() -> { if(afkSource!=null) afkSource.sendFeedback(Component.literal(name+" ist AFK")); });
+                    if(idleMillis>=0L && idleMillis<86_400_000L && !name.isBlank() && name.length()<=16) {
+                        String status = idleMillis>=10_000L ? " ist AFK" : " ist nicht AFK";
+                        client.execute(() -> { if(afkSource!=null) afkSource.sendFeedback(Component.literal(name+status)); });
                     }
                 }
             }
