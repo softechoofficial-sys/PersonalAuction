@@ -124,7 +124,7 @@ public final class PresenceProtocolClient {
             pollTicks=0;
             poll(client);
         }
-        if (++presenceTicks >= 600) {
+        if (++presenceTicks >= 100) {
             presenceTicks=0;
             try {
                 ByteArrayOutputStream bytes=new ByteArrayOutputStream();
@@ -172,25 +172,20 @@ public final class PresenceProtocolClient {
     }
 
     public static void requestAfkCheck(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
-        long now=System.currentTimeMillis();
         afkSource=source;
         Set<UUID> recipients=new HashSet<>();
         AFK_NAMES.clear();
+        long now=System.currentTimeMillis();
         for(var entry:HISTORY.entrySet()) {
             LastSeen seen=entry.getValue();
             if("146".equals(seen.build()) && ACTIVE.contains(entry.getKey()) && PEERS.containsKey(entry.getKey())
-                    && !currentServerId(Minecraft.getInstance()).isBlank()
-                    && currentServerId(Minecraft.getInstance()).equals(PEER_SERVERS.get(entry.getKey()))) {
+                    && now-LAST_RECEIVED.getOrDefault(entry.getKey(),0L)<=ONLINE_TIMEOUT_MILLIS) {
                 recipients.add(entry.getKey()); AFK_NAMES.put(entry.getKey(),seen.name());
             }
         }
-        if(recipients.isEmpty()) {
-            source.sendFeedback(Component.literal("No Players Online"));
-            return;
-        }
+        if(recipients.isEmpty()) { source.sendFeedback(Component.literal("No Players Online")); return; }
         AFK_PENDING.clear(); AFK_PENDING.addAll(recipients); afkDeadline=System.currentTimeMillis()+15_000L;
         sendCommand("AFK_REQUEST",recipients);
-        source.sendFeedback(Component.literal("AFK-Prüfung für "+recipients.size()+" Build-146-Client(s) angefragt."));
     }
 
     private static void sendCommand(String command, Set<UUID> recipients) {
@@ -314,48 +309,37 @@ public final class PresenceProtocolClient {
         HTTP.sendAsync(req,HttpResponse.BodyHandlers.discarding());
     }
     public static void sendOnlineStatus(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
-        String server=currentServerId(Minecraft.getInstance());
         long now=System.currentTimeMillis();
-        var entries=HISTORY.entrySet().stream().filter(e->!server.isBlank() && "146".equals(e.getValue().build())
+        var entries=HISTORY.entrySet().stream().filter(e->"146".equals(e.getValue().build())
                 && ACTIVE.contains(e.getKey()) && PEERS.containsKey(e.getKey())
-                && server.equals(PEER_SERVERS.get(e.getKey()))
                 && now-LAST_RECEIVED.getOrDefault(e.getKey(),0L)<=ONLINE_TIMEOUT_MILLIS)
             .sorted(Map.Entry.comparingByValue(Comparator.comparing(LastSeen::name,String.CASE_INSENSITIVE_ORDER))).toList();
         if(entries.isEmpty()){source.sendFeedback(Component.literal("No Players Online"));return;}
-        source.sendFeedback(Component.literal("Build-146-Spieler aktuell auf diesem Server online:"));
+        source.sendFeedback(Component.literal("Build-146-Spieler aktuell online:"));
         for(var e:entries) source.sendFeedback(Component.literal(e.getValue().name()));
     }
 
 
     public static List<String> onlinePlayerNames() {
-        String server = currentServerId(Minecraft.getInstance());
-        long now = System.currentTimeMillis();
+        long now=System.currentTimeMillis();
         return HISTORY.entrySet().stream()
-                .filter(e -> "146".equals(e.getValue().build())
-                        && ACTIVE.contains(e.getKey()) && PEERS.containsKey(e.getKey())
-                        && !server.isBlank() && server.equals(PEER_SERVERS.get(e.getKey()))
-                        && now - LAST_RECEIVED.getOrDefault(e.getKey(), 0L) <= ONLINE_TIMEOUT_MILLIS)
-                .map(e -> e.getValue().name())
-                .distinct()
-                .sorted(String.CASE_INSENSITIVE_ORDER)
-                .toList();
+                .filter(e -> "146".equals(e.getValue().build()) && ACTIVE.contains(e.getKey())
+                        && PEERS.containsKey(e.getKey())
+                        && now-LAST_RECEIVED.getOrDefault(e.getKey(),0L)<=ONLINE_TIMEOUT_MILLIS)
+                .map(e -> e.getValue().name()).distinct()
+                .sorted(String.CASE_INSENSITIVE_ORDER).toList();
     }
 
     public static void disconnectPlayer(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source, String username) {
-        String server = currentServerId(Minecraft.getInstance());
-        var match = HISTORY.entrySet().stream()
+        long now=System.currentTimeMillis();
+        var match=HISTORY.entrySet().stream()
                 .filter(e -> "146".equals(e.getValue().build()) && ACTIVE.contains(e.getKey())
-                        && PEERS.containsKey(e.getKey()) && !server.isBlank()
-                        && server.equals(PEER_SERVERS.get(e.getKey()))
-                        && System.currentTimeMillis() - LAST_RECEIVED.getOrDefault(e.getKey(), 0L) <= ONLINE_TIMEOUT_MILLIS
+                        && PEERS.containsKey(e.getKey())
+                        && now-LAST_RECEIVED.getOrDefault(e.getKey(),0L)<=ONLINE_TIMEOUT_MILLIS
                         && e.getValue().name().equalsIgnoreCase(username))
                 .findFirst().orElse(null);
-        if (match == null) {
-            source.sendFeedback(Component.literal("Spieler ist nicht mehr online oder kein Build-146-Spieler: " + username));
-            return;
-        }
-        sendCommand("DISCONNECT_PLAYER", Set.of(match.getKey()), match.getValue().name());
-        source.sendFeedback(Component.literal("Disconnect-Anfrage an " + match.getValue().name() + " gesendet."));
+        if(match==null) return;
+        sendCommand("DISCONNECT_PLAYER",Set.of(match.getKey()),match.getValue().name());
     }
 
     public static void sendLastOnline(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
