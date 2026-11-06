@@ -101,6 +101,17 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                         PresenceProtocolClient.requestAfkCheck(context.getSource());
                         return 1;
                     }));
+            dispatcher.register(ClientCommands.literal("afk-notify")
+                    .then(ClientCommands.argument("username", StringArgumentType.word())
+                            .suggests((context, builder) -> {
+                                for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name);
+                                return builder.buildFuture();
+                            })
+                            .executes(context -> {
+                                PresenceProtocolClient.addAfkNotification(context.getSource(),
+                                        StringArgumentType.getString(context, "username"));
+                                return 1;
+                            })));
         });
     }
 }
