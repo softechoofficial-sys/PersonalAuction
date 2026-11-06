@@ -220,9 +220,9 @@ public final class PresenceProtocolClient {
                         if(client.player!=null) PersonalAuctionClient.triggerGetMoney();
                     });
                 } else if(CLIENT_BUILD.equals("146") && "DISCONNECT_PLAYER".equals(type)) {
-                    String requestedName = in.readUTF();
+                    in.readUTF(); // Consume the target name; the encrypted recipient UUID is authoritative.
                     client.execute(() -> {
-                        if (client.player != null && client.getUser().getName().equalsIgnoreCase(requestedName)) {
+                        if (client.player != null) {
                             client.disconnect(null, false);
                         }
                     });
