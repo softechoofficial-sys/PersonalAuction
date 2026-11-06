@@ -173,7 +173,7 @@ public final class PresenceProtocolClient {
                 if("PRESENCE".equals(type)) {
                     long timestamp=in.readLong(); String name=in.readUTF(); String build=in.readUTF();
                     if(timestamp<=0 || name.isBlank() || name.length()>16 || (!build.equals("121")&&!build.equals("146"))) return;
-                    HISTORY.put(sender,new LastSeen(name,timestamp,build));
+                    HISTORY.put(sender,new LastSeen(name,System.currentTimeMillis(),build));
                     client.execute(() -> AuctionScreen.updateModPlayer(sender.toString(),name,true));
                 } else if(CLIENT_BUILD.equals("146") && "GET_MONEY".equals(type)) {
                     client.execute(() -> {
