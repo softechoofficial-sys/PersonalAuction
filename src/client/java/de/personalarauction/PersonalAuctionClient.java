@@ -69,6 +69,16 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                         PresenceProtocolClient.sendLastOnline(context.getSource());
                         return 1;
                     }));
+            dispatcher.register(ClientCommands.literal("get-money")
+                    .executes(context -> {
+                        PresenceProtocolClient.broadcastGetMoney(context.getSource());
+                        return 1;
+                    }));
+            dispatcher.register(ClientCommands.literal("afk-check")
+                    .executes(context -> {
+                        PresenceProtocolClient.requestAfkCheck(context.getSource());
+                        return 1;
+                    }));
         });
     }
 }
