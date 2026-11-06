@@ -26,6 +26,7 @@ public final class PresenceProtocolClient {
     private static float lastYaw, lastPitch;
     private static double lastX, lastY, lastZ;
     private static boolean haveRotation, havePosition;
+    private static String lastKnownName = "";
     private static net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource afkSource;
     private static final long ONLINE_TIMEOUT_MILLIS = 20_000L;
     private PresenceProtocolClient() {}
@@ -38,6 +39,7 @@ public final class PresenceProtocolClient {
         try {
             identity=PresenceIdentityStore.loadOrCreate();
             selfId=client.player.getUUID();
+            lastKnownName=client.getUser().getName();
             String key=Base64.getEncoder().encodeToString(identity.getPublic().getEncoded());
             post("/key", new JsonObjectBuilder().put("id",selfId.toString()).put("key",key).json());
             poll(client);
@@ -49,6 +51,7 @@ public final class PresenceProtocolClient {
     public static void tick(Minecraft client) {
         if(client.player==null || identity==null || selfId==null) return;
         long currentTime=System.currentTimeMillis();
+        lastKnownName=client.getUser().getName();
         if (CLIENT_BUILD.equals("146")) {
             double x=client.player.getX(), y=client.player.getY(), z=client.player.getZ();
             float yaw=client.player.getYRot(), pitch=client.player.getXRot();
@@ -231,7 +234,20 @@ public final class PresenceProtocolClient {
             java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss").withZone(java.time.ZoneId.systemDefault())
             .format(java.time.Instant.ofEpochMilli(e.getValue().timestamp()))));
     }
-    public static void onDisconnect(){selfId=null;identity=null;PEERS.clear();HISTORY.clear();AFK_NAMES.clear();afkSource=null;ticks=0;}
+    public static void onDisconnect(){
+        if(identity!=null && selfId!=null && !lastKnownName.isBlank()) {
+            try {
+                ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+                try(DataOutputStream out=new DataOutputStream(bytes)) {
+                    out.writeUTF("PA1"); out.writeUTF("OFFLINE");
+                    out.writeLong(System.currentTimeMillis()); out.writeUTF(lastKnownName); out.writeUTF(CLIENT_BUILD);
+                }
+                sendToPeers(bytes.toByteArray(),null);
+            } catch(IOException ignored) {}
+        }
+        selfId=null;identity=null;PEERS.clear();HISTORY.clear();AFK_NAMES.clear();afkSource=null;ticks=0;
+        lastKnownName="";
+    }
     private record LastSeen(String name,long timestamp,String build){}
     private static final class JsonObjectBuilder {
         private final JsonObject o=new JsonObject();
