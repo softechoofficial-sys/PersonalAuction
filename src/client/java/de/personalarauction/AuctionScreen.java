@@ -324,7 +324,7 @@ public class AuctionScreen extends Screen {
     @Override
     protected void init() {
         int left = this.width / 2 - 210;
-        int top = this.height / 2 - 125;
+        int top = this.height / 2 - 145;
         itemPickerButton = Button.builder(getSelectedItemLabel(), button -> openItemPicker())
                 .bounds(left + 16, top + 102, 190, 20).build();
         addRenderableWidget(itemPickerButton);
@@ -442,7 +442,7 @@ public class AuctionScreen extends Screen {
                 this.height / 2.0f * (1.0f - scale));
         graphics.pose().scale(scale, scale);
         int left = this.width / 2 - 210;
-        int top = this.height / 2 - 125;
+        int top = this.height / 2 - 145;
         int right = left + 420;
         int bottom = top + 290;
 
@@ -566,7 +566,7 @@ public class AuctionScreen extends Screen {
         mouseX = toLogicalX(mouseX);
         mouseY = toLogicalY(mouseY);
         int left = this.width / 2 - 210;
-        int top = this.height / 2 - 125;
+        int top = this.height / 2 - 145;
         if (mouseX >= left + 215 && mouseX <= left + 415 && mouseY >= top + 116 && mouseY <= top + 245) {
             int maxScroll = Math.max(0, getRankedPayments().size() + latePaymentTotals.size() - 8);
             paymentScroll = Math.max(0, Math.min(maxScroll, paymentScroll - (int) Math.signum(verticalAmount)));
