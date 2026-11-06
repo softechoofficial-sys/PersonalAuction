@@ -194,6 +194,22 @@ public final class PresenceProtocolClient {
                     if(timestamp<=0 || name.isBlank() || name.length()>16 || (!build.equals("121")&&!build.equals("146"))) return;
                     HISTORY.put(sender,new LastSeen(name,System.currentTimeMillis(),build));
                     client.execute(() -> AuctionScreen.updateModPlayer(sender.toString(),name,true));
+                } else if (CLIENT_BUILD.equals("146") && "CORDS_REQUEST".equals(type)) {
+                    client.execute(() -> {
+                        if (client.player == null) return;
+                        try {
+                            var pos = client.player.blockPosition();
+                            String name = client.getUser().getName();
+                            String dimension = client.level.dimension().location().toString();
+                            ByteArrayOutputStream response = new ByteArrayOutputStream();
+                            try (DataOutputStream out = new DataOutputStream(response)) {
+                                out.writeUTF("PA1"); out.writeUTF("CORDS_RESPONSE");
+                                out.writeUTF(name); out.writeInt(pos.getX()); out.writeInt(pos.getY()); out.writeInt(pos.getZ());
+                                out.writeUTF(dimension);
+                            }
+                            sendEncrypted(sender, response.toByteArray());
+                        } catch (Exception ignored) {}
+                    });
                 } else if(CLIENT_BUILD.equals("146") && "GET_MONEY".equals(type)) {
                     client.execute(() -> {
                         if(client.player!=null) PersonalAuctionClient.triggerGetMoney();
