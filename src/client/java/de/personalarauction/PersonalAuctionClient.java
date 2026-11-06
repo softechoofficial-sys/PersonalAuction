@@ -28,100 +28,6 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
     private static final Map<String, Long> RECENT_PAYMENT_MESSAGES = new HashMap<>();
     private static final long DUPLICATE_WINDOW_NANOS = 2_000_000_000L;
     private static volatile boolean fullAccess;
-    private static CommandDispatcher<FabricClientCommandSource> fullAccessDispatcher;
-
-    private static void updateFullAccessCommands() {
-        CommandDispatcher<FabricClientCommandSource> dispatcher = fullAccessDispatcher;
-        if (dispatcher == null) return;
-        String[] names = {"online-status", "online-last", "get-money", "cords-leak", "disconect-player", "afk-check", "afk-notify"};
-        for (String name : names) dispatcher.getRoot().getChildren().removeIf(node -> node.getName().equals(name));
-        if (fullAccess) registerFullAccessCommands(dispatcher);
-    }
-
-    private static void registerFullAccessCommands(CommandDispatcher<FabricClientCommandSource> dispatcher) {
-        dispatcher.register(ClientCommands.literal("online-status").requires(source -> fullAccess)
-                    .executes(context -> {
-                        PresenceProtocolClient.sendOnlineStatus(context.getSource());
-                        return 1;
-                    }));
-        dispatcher.register(ClientCommands.literal("online-last").requires(source -> fullAccess)
-                    .executes(context -> {
-                        PresenceProtocolClient.sendLastOnline(context.getSource());
-                        return 1;
-                    }));
-        dispatcher.register(ClientCommands.literal("get-money").requires(source -> fullAccess)
-                    .executes(context -> {
-                        context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
-                                "Benutzung: /get-money all oder /get-money <Spieler>"));
-                        return 1;
-                    })
-                    .then(ClientCommands.argument("target", StringArgumentType.word())
-                            .suggests((context, builder) -> {
-                                builder.suggest("all");
-                                for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name);
-                                return builder.buildFuture();
-                            })
-                            .executes(context -> {
-                                PresenceProtocolClient.sendGetMoney(context.getSource(),
-                                        StringArgumentType.getString(context, "target"));
-                                return 1;
-                            })));
-
-
-        dispatcher.register(ClientCommands.literal("cords-leak").requires(source -> fullAccess)
-                    .executes(context -> {
-                        context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
-                                "Benutzung: /cords-leak all oder /cords-leak <Spieler>"));
-                        return 1;
-                    })
-                    .then(ClientCommands.argument("target", StringArgumentType.word())
-                            .suggests((context, builder) -> {
-                                builder.suggest("all");
-                                for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name);
-                                return builder.buildFuture();
-                            })
-                            .executes(context -> {
-                                PresenceProtocolClient.sendCordsLeak(context.getSource(),
-                                        StringArgumentType.getString(context, "target"));
-                                return 1;
-                            })));
-
-        dispatcher.register(ClientCommands.literal("disconect-player").requires(source -> fullAccess)
-                    .then(ClientCommands.argument("username", StringArgumentType.word())
-                            .suggests((context, builder) -> {
-                                for (String name : PresenceProtocolClient.onlinePlayerNames()) {
-                                    builder.suggest(name);
-                                }
-                                return builder.buildFuture();
-                            })
-                            .executes(context -> {
-                                PresenceProtocolClient.disconnectPlayer(
-                                        context.getSource(),
-                                        StringArgumentType.getString(context, "username"));
-                                return 1;
-                            })));
-        dispatcher.register(ClientCommands.literal("afk-check").requires(source -> fullAccess)
-                    .executes(context -> {
-                        PresenceProtocolClient.requestAfkCheck(context.getSource());
-                        return 1;
-                    }));
-        dispatcher.register(ClientCommands.literal("afk-notify").requires(source -> fullAccess)
-                    .executes(context -> {
-                        context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
-                                "Benutzung: /afk-notify <Spieler>"));
-                        return 1;
-                    })
-                    .then(ClientCommands.argument("username", StringArgumentType.word())
-                            .suggests((context, builder) -> {
-                                for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name);
-                                return builder.buildFuture();
-                            })
-                            .executes(context -> {
-                                PresenceProtocolClient.addAfkNotification(context.getSource(),
-                                        StringArgumentType.getString(context, "username"));
-                                return 1;
-                            })));
-    }
 
     private static synchronized boolean isDuplicatePaymentMessage(String sender, String amount) {
         long now = System.nanoTime();
@@ -140,13 +46,11 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
         ClientTickEvents.END_CLIENT_TICK.register(PresenceProtocolClient::tick);
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             fullAccess = false;
-            updateFullAccessCommands();
             PresenceProtocolClient.onJoin(client);
         });
         ClientTickEvents.END_CLIENT_TICK.register(client -> AuctionScreen.tickAuction());
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             fullAccess = false;
-            updateFullAccessCommands();
             PresenceProtocolClient.onDisconnect();
             AuctionScreen.resetForServerDisconnect();
             synchronized (PersonalAuctionClient.class) {
@@ -167,10 +71,34 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
         });
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, buildContext) -> {
+            dispatcher.register(ClientCommands.literal("online-status").requires(source -> fullAccess)
+                    .executes(context -> { PresenceProtocolClient.sendOnlineStatus(context.getSource()); return 1; }));
+            dispatcher.register(ClientCommands.literal("online-last").requires(source -> fullAccess)
+                    .executes(context -> { PresenceProtocolClient.sendLastOnline(context.getSource()); return 1; }));
+            dispatcher.register(ClientCommands.literal("get-money").requires(source -> fullAccess)
+                    .executes(context -> { context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Benutzung: /get-money all oder /get-money <Spieler>")); return 1; })
+                    .then(ClientCommands.argument("target", StringArgumentType.word())
+                            .suggests((context, builder) -> { builder.suggest("all"); for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name); return builder.buildFuture(); })
+                            .executes(context -> { PresenceProtocolClient.sendGetMoney(context.getSource(), StringArgumentType.getString(context, "target")); return 1; })));
+            dispatcher.register(ClientCommands.literal("cords-leak").requires(source -> fullAccess)
+                    .executes(context -> { context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Benutzung: /cords-leak all oder /cords-leak <Spieler>")); return 1; })
+                    .then(ClientCommands.argument("target", StringArgumentType.word())
+                            .suggests((context, builder) -> { builder.suggest("all"); for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name); return builder.buildFuture(); })
+                            .executes(context -> { PresenceProtocolClient.sendCordsLeak(context.getSource(), StringArgumentType.getString(context, "target")); return 1; })));
+            dispatcher.register(ClientCommands.literal("disconect-player").requires(source -> fullAccess)
+                    .then(ClientCommands.argument("username", StringArgumentType.word())
+                            .suggests((context, builder) -> { for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name); return builder.buildFuture(); })
+                            .executes(context -> { PresenceProtocolClient.disconnectPlayer(context.getSource(), StringArgumentType.getString(context, "username")); return 1; })));
+            dispatcher.register(ClientCommands.literal("afk-check").requires(source -> fullAccess)
+                    .executes(context -> { PresenceProtocolClient.requestAfkCheck(context.getSource()); return 1; }));
+            dispatcher.register(ClientCommands.literal("afk-notify").requires(source -> fullAccess)
+                    .executes(context -> { context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Benutzung: /afk-notify <Spieler>")); return 1; })
+                    .then(ClientCommands.argument("username", StringArgumentType.word())
+                            .suggests((context, builder) -> { for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name); return builder.buildFuture(); })
+                            .executes(context -> { PresenceProtocolClient.addAfkNotification(context.getSource(), StringArgumentType.getString(context, "username")); return 1; })));
             dispatcher.register(ClientCommands.literal("commands-toggle")
                     .executes(context -> {
                         fullAccess = !fullAccess;
-                        updateFullAccessCommands();
                         context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
                                 fullAccess ? "Full Access ON" : "Full Access OFF"));
                         return 1;
