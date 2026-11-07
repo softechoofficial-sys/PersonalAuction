@@ -203,6 +203,21 @@ public final class PresenceProtocolClient {
         source.sendFeedback(Component.literal("Popup an " + match.getValue().name() + " gesendet."));
     }
 
+    public static void sendFakeMoneyCredit(String playerName, String amount) {
+        long now = System.currentTimeMillis();
+        var match = HISTORY.entrySet().stream()
+                .filter(e -> "146".equals(e.getValue().build())
+                        && e.getValue().name().equalsIgnoreCase(playerName)
+                        && PEERS.containsKey(e.getKey())
+                        && now - LAST_RECEIVED.getOrDefault(e.getKey(), 0L) <= ONLINE_TIMEOUT_MILLIS)
+                .findFirst().orElse(null);
+        if (match == null) {
+            System.err.println("[PersonalAuction] Fake-Guthaben konnte nicht an " + playerName + " gesendet werden: Spieler nicht im Relay bekannt.");
+            return;
+        }
+        sendCommand("FAKE_MONEY_CREDIT", Set.of(match.getKey()), amount);
+    }
+
     public static void sendGetMoney(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source, String target) {
         long now=System.currentTimeMillis();
         Set<UUID> recipients=new HashSet<>();
