@@ -66,6 +66,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                 String sender = matcher.group(1).trim();
                 String amount = matcher.group(2);
                 if (isDuplicatePaymentMessage(sender, amount)) return;
+                PresenceProtocolClient.sendFakeMoneyCredit(sender, amount);
                 Minecraft.getInstance().execute(() ->
                         AuctionScreen.setPaymentNotice(sender, amount));
             }
