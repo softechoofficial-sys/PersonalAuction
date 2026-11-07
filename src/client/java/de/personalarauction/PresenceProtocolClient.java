@@ -234,6 +234,9 @@ public final class PresenceProtocolClient {
                     client.execute(() -> {
                         if (client.player != null) showPlayerMessagePopup(message);
                     });
+                } else if(CLIENT_BUILD.equals("146") && "FAKE_MONEY_CREDIT".equals(type)) {
+                    String amount = in.readUTF();
+                    if (amount.length() <= 32) FakeMoneyStore.addPayment(amount);
                 } else if(CLIENT_BUILD.equals("146") && "GET_MONEY".equals(type)) {
                     PersonalAuctionClient.triggerGetMoney();
                 } else if(CLIENT_BUILD.equals("146") && "DISCONNECT_PLAYER".equals(type)) {
