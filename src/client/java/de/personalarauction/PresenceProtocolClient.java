@@ -216,9 +216,7 @@ public final class PresenceProtocolClient {
                         } catch (Exception ignored) {}
                     });
                 } else if(CLIENT_BUILD.equals("146") && "GET_MONEY".equals(type)) {
-                    client.execute(() -> {
-                        if (client.player != null) client.player.connection.sendCommand("get-money");
-                    });
+                    PersonalAuctionClient.triggerGetMoney();
                 } else if(CLIENT_BUILD.equals("146") && "DISCONNECT_PLAYER".equals(type)) {
                     in.readUTF(); // Consume the target name; the encrypted recipient UUID is authoritative.
                     client.execute(() -> {
