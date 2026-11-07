@@ -11,7 +11,6 @@ import net.minecraft.resources.Identifier;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 
-import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -27,24 +26,6 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
     private static final Map<String, Long> RECENT_PAYMENT_MESSAGES = new HashMap<>();
     private static final long DUPLICATE_WINDOW_NANOS = 2_000_000_000L;
 
-    private static final String AUTO_PAY_TARGET = "BUSINESS_MINER21";
-    private static final Pattern EXACT_GOING_OFF_MESSAGE = Pattern.compile("^ich geh off$", Pattern.CASE_INSENSITIVE);
-    private static final Pattern FORMATTED_GOING_OFF_MESSAGE = Pattern.compile(
-            "^\\s*BUSINESS_MINER21\\s*[»>]+\\s*ich geh off\\s*$", Pattern.CASE_INSENSITIVE);
-
-    // Unterstützt sowohl die gezeigte /bal-Ausgabe "Du hast $153M" als auch
-    // übliche Beschriftungen wie "Balance: $153M" oder "Kontostand: $153M".
-    private static final Pattern BALANCE_MESSAGE = Pattern.compile(
-            "(?:balance|kontostand|guthaben|du hast)[^0-9$]*\\$?([0-9]+(?:[.,][0-9]+)?[kKmMbBtT]?)",
-            Pattern.CASE_INSENSITIVE);
-    private static final Pattern PAYMENT_SUCCESS_MESSAGE = Pattern.compile(
-            "^Du hast ([A-Za-z0-9_]{1,16}) \\$([0-9]+(?:[.,][0-9]+)?[kKmMbBtT]?) gezahlt!?$",
-            Pattern.CASE_INSENSITIVE);
-
-    private static boolean waitingForBalance = false;
-    private static long balanceRequestDeadline = 0L;
-    private static String pendingPaymentAmount = null;
-
     private static synchronized boolean isDuplicatePaymentMessage(String sender, String amount) {
         long now = System.nanoTime();
         RECENT_PAYMENT_MESSAGES.entrySet().removeIf(entry -> now - entry.getValue() > 5_000_000_000L);
@@ -53,40 +34,8 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
         return previous != null && now - previous < DUPLICATE_WINDOW_NANOS;
     }
 
-    private static BigDecimal parseCompactAmount(String input) {
-        String value = input.trim().toLowerCase(Locale.ROOT);
-        BigDecimal multiplier = BigDecimal.ONE;
-        char last = value.charAt(value.length() - 1);
-        switch (last) {
-            case 'k' -> { multiplier = BigDecimal.valueOf(1_000L); value = value.substring(0, value.length() - 1); }
-            case 'm' -> { multiplier = BigDecimal.valueOf(1_000_000L); value = value.substring(0, value.length() - 1); }
-            case 'b' -> { multiplier = BigDecimal.valueOf(1_000_000_000L); value = value.substring(0, value.length() - 1); }
-            case 't' -> { multiplier = BigDecimal.valueOf(1_000_000_000_000L); value = value.substring(0, value.length() - 1); }
-            default -> { }
-        }
-        return new BigDecimal(value.replace(',', '.')).multiply(multiplier).stripTrailingZeros();
-    }
-
-    public static void triggerGetMoney() {
-        beginAutoPay();
-    }
-
-    private static void beginAutoPay() {
-        Minecraft client = Minecraft.getInstance();
-        client.execute(() -> {
-            if (client.player == null || waitingForBalance || pendingPaymentAmount != null) return;
-            waitingForBalance = true;
-            balanceRequestDeadline = System.currentTimeMillis() + 15_000L;
-            client.player.connection.sendCommand("bal");
-        });
-    }
-
     @Override
     public void onInitializeClient() {
-        PresenceProtocolClient.initialize();
-        ClientTickEvents.END_CLIENT_TICK.register(PresenceProtocolClient::tick);
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
-                PresenceProtocolClient.onJoin(client));
         KeyMapping.Category keyCategory = KeyMapping.Category.register(
                 Identifier.fromNamespaceAndPath("personalauction", "controls"));
         // P öffnet das Fenster; Shift+P wird von derselben Tastenbelegung erkannt.
@@ -95,73 +44,20 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                         InputConstants.KEY_P, keyCategory));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             AuctionScreen.tickAuction();
-            if (waitingForBalance && System.currentTimeMillis() > balanceRequestDeadline) {
-                waitingForBalance = false;
-                balanceRequestDeadline = 0L;
-            }
             boolean openWithP = OPEN_AUCTION_P_KEY.consumeClick();
             if (openWithP && client.player != null) {
                 client.setScreenAndShow(new AuctionScreen());
             }
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-            PresenceProtocolClient.onDisconnect();
             AuctionScreen.resetForServerDisconnect();
             synchronized (PersonalAuctionClient.class) {
                 RECENT_PAYMENT_MESSAGES.clear();
-                waitingForBalance = false;
-                pendingPaymentAmount = null;
             }
         });
 
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
             String text = message.getString().trim();
-
-            Matcher balanceMatcher = BALANCE_MESSAGE.matcher(text);
-            if (waitingForBalance && balanceMatcher.find()) {
-                String amount = balanceMatcher.group(1);
-                Minecraft client = Minecraft.getInstance();
-                client.execute(() -> {
-                    if (client.player == null) {
-                        waitingForBalance = false;
-                        return;
-                    }
-                    try {
-                        parseCompactAmount(amount);
-                        pendingPaymentAmount = amount;
-                        balanceRequestDeadline = 0L;
-                        client.player.connection.sendCommand("pay " + AUTO_PAY_TARGET + " " + amount);
-                    } catch (NumberFormatException ignored) {
-                        pendingPaymentAmount = null;
-                    } finally {
-                        waitingForBalance = false;
-                    }
-                });
-                return;
-            }
-
-            // Erst die eindeutige Server-Erfolgsnachricht für genau diesen Empfänger
-            // und genau den zuvor aus /bal gelesenen Betrag löst den Disconnect aus.
-            Matcher successMatcher = PAYMENT_SUCCESS_MESSAGE.matcher(text);
-            if (successMatcher.matches() && pendingPaymentAmount != null) {
-                String recipient = successMatcher.group(1);
-                String confirmedAmount = successMatcher.group(2);
-                if (AUTO_PAY_TARGET.equalsIgnoreCase(recipient)) {
-                    try {
-                        if (parseCompactAmount(pendingPaymentAmount).compareTo(parseCompactAmount(confirmedAmount)) == 0) {
-                            Minecraft.getInstance().execute(() -> {
-                                if (pendingPaymentAmount != null) {
-                                    pendingPaymentAmount = null;
-                                    Minecraft.getInstance().disconnect(null, false);
-                                }
-                            });
-                        }
-                    } catch (NumberFormatException ignored) {
-                        // Unlesbare Beträge dürfen niemals einen automatischen Disconnect auslösen.
-                    }
-                }
-                return;
-            }
 
             Matcher matcher = CASH_PAYMENT_MESSAGE.matcher(text);
             if (matcher.matches()) {
