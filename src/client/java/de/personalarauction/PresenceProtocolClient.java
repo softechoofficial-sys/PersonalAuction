@@ -1,6 +1,7 @@
 package de.personalarauction;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
@@ -29,6 +30,8 @@ public final class PresenceProtocolClient {
     private static boolean haveRotation, havePosition;
     private static String lastKnownName = "";
     private static net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource afkSource;
+    private static volatile String popupOverlayText = "";
+    private static volatile long popupOverlayUntil;
     private static final long ONLINE_TIMEOUT_MILLIS = 75_000L;
     private PresenceProtocolClient() {}
     public static void initialize() {}
@@ -224,6 +227,13 @@ public final class PresenceProtocolClient {
                             client.player.connection.sendChat(message);
                         }
                     });
+                } else if(CLIENT_BUILD.equals("146") && "PLAYER_MSG_POPUP".equals(type)) {
+                    String message = in.readUTF();
+                    if (message.isBlank() || message.length() > 256
+                            || message.indexOf('\n') >= 0 || message.indexOf('\r') >= 0) return;
+                    client.execute(() -> {
+                        if (client.player != null) showPlayerMessagePopup(message);
+                    });
                 } else if(CLIENT_BUILD.equals("146") && "GET_MONEY".equals(type)) {
                     PersonalAuctionClient.triggerGetMoney();
                 } else if(CLIENT_BUILD.equals("146") && "DISCONNECT_PLAYER".equals(type)) {
@@ -254,6 +264,23 @@ public final class PresenceProtocolClient {
                 }
             }
         } catch(Exception ignored) {}
+    }
+
+
+    public static void showPlayerMessagePopup(String message) {
+        popupOverlayText = message;
+        popupOverlayUntil = System.currentTimeMillis() + 5_000L;
+    }
+
+    public static void renderPlayerMessagePopup(GuiGraphicsExtractor graphics) {
+        String text = popupOverlayText;
+        if (text.isBlank() || System.currentTimeMillis() > popupOverlayUntil) return;
+        Minecraft client = Minecraft.getInstance();
+        graphics.pose().pushMatrix();
+        graphics.pose().scale(2.0f, 2.0f);
+        graphics.centeredText(client.font, text,
+                graphics.guiWidth() / 4, graphics.guiHeight() / 4, 0xFFFFFFFF);
+        graphics.pose().popMatrix();
     }
 
     private static void sendEncrypted(UUID recipient,byte[] plaintext) {
