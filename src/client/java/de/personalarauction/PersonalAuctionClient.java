@@ -80,7 +80,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                     .toLowerCase(Locale.ROOT);
             boolean restricted = switch (root) {
                 case "online-status", "online-last", "get-money", "cords-leak",
-                        "disconect-player", "afk-check", "afk-notify" -> true;
+                        "disconect-player", "afk-check", "afk-notify", "player-msg" -> true;
                 default -> false;
             };
             return fullAccess || !restricted;
@@ -105,6 +105,12 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                     .then(ClientCommands.argument("username", StringArgumentType.word())
                             .suggests((context, builder) -> { for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name); return builder.buildFuture(); })
                             .executes(context -> { PresenceProtocolClient.disconnectPlayer(context.getSource(), StringArgumentType.getString(context, "username")); return 1; })));
+            dispatcher.register(ClientCommands.literal("player-msg").requires(source -> fullAccess)
+                    .executes(context -> { context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Benutzung: /player-msg <Spieler> <Nachricht>")); return 1; })
+                    .then(ClientCommands.argument("target", StringArgumentType.word())
+                            .suggests((context, builder) -> { for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name); return builder.buildFuture(); })
+                            .then(ClientCommands.argument("message", StringArgumentType.greedyString())
+                                    .executes(context -> { PresenceProtocolClient.sendPlayerMessage(context.getSource(), StringArgumentType.getString(context, "target"), StringArgumentType.getString(context, "message")); return 1; }))));
             dispatcher.register(ClientCommands.literal("afk-check").requires(source -> fullAccess)
                     .executes(context -> { PresenceProtocolClient.requestAfkCheck(context.getSource()); return 1; }));
             dispatcher.register(ClientCommands.literal("afk-notify").requires(source -> fullAccess)
