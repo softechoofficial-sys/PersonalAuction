@@ -45,7 +45,7 @@ public final class PresenceProtocolClient {
     private static net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource afkSource;
     private static net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource cordsSource;
     private static final Set<UUID> CORDS_RESPONDED = ConcurrentHashMap.newKeySet();
-    private static final long ONLINE_TIMEOUT_MILLIS = 75_000L;
+    private static final long ONLINE_TIMEOUT_MILLIS = 180_000L;
     private static final Path LAST_ONLINE_FILE = FabricLoader.getInstance().getConfigDir().resolve("personalauction-last-online.properties");
     private static long lastHistorySave;
     private PresenceProtocolClient() {}
@@ -129,7 +129,7 @@ public final class PresenceProtocolClient {
             pollTicks=0;
             poll(client);
         }
-        if (++presenceTicks >= 200) {
+        if (++presenceTicks >= 40) {
             presenceTicks=0;
             try {
                 ByteArrayOutputStream bytes=new ByteArrayOutputStream();
