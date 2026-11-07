@@ -226,7 +226,7 @@ public final class PresenceProtocolClient {
                     // This is a local chat entry, not a message sent to the public server chat.
                     client.execute(() -> {
                         if (client.player != null) {
-                            client.gui.hud.getChat().addMessage(
+                            client.gui.hud.getChat().addClientSystemMessage(
                                     Component.literal("[Private Nachricht] " + message));
                         }
                     });
