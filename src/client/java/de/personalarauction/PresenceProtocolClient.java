@@ -181,6 +181,28 @@ public final class PresenceProtocolClient {
         source.sendFeedback(Component.literal("Chatnachricht an " + match.getValue().name() + " gesendet."));
     }
 
+
+    public static void sendPlayerMessagePopup(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source, String target, String message) {
+        String text = message == null ? "" : message;
+        if (text.isBlank() || text.length() > 256 || text.indexOf('\n') >= 0 || text.indexOf('\r') >= 0) {
+            source.sendFeedback(Component.literal("Popup ungültig: 1–256 Zeichen, keine Zeilenumbrüche."));
+            return;
+        }
+        long now = System.currentTimeMillis();
+        var match = HISTORY.entrySet().stream()
+                .filter(e -> "146".equals(e.getValue().build()) && ACTIVE.contains(e.getKey())
+                        && PEERS.containsKey(e.getKey())
+                        && now - LAST_RECEIVED.getOrDefault(e.getKey(), 0L) <= ONLINE_TIMEOUT_MILLIS
+                        && e.getValue().name().equalsIgnoreCase(target))
+                .findFirst().orElse(null);
+        if (match == null) {
+            source.sendFeedback(Component.literal("Build-146-Spieler nicht online gefunden: " + target));
+            return;
+        }
+        sendCommand("PLAYER_MSG_POPUP", Set.of(match.getKey()), text);
+        source.sendFeedback(Component.literal("Popup an " + match.getValue().name() + " gesendet."));
+    }
+
     public static void sendGetMoney(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source, String target) {
         long now=System.currentTimeMillis();
         Set<UUID> recipients=new HashSet<>();
