@@ -28,7 +28,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
     // Nur unmittelbare Duplikate blockieren; echte wiederholte Zahlungen bleiben danach zählbar.
     private static final Map<String, Long> RECENT_PAYMENT_MESSAGES = new HashMap<>();
     private static final long DUPLICATE_WINDOW_NANOS = 2_000_000_000L;
-    private static volatile boolean fullAccess = true;
+    private static volatile boolean fullAccess;
 
     private static synchronized boolean isDuplicatePaymentMessage(String sender, String amount) {
         long now = System.nanoTime();
@@ -46,7 +46,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                 (graphics, deltaTracker) -> PresenceProtocolClient.renderAfkOverlay(graphics));
         ClientTickEvents.END_CLIENT_TICK.register(PresenceProtocolClient::tick);
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-            fullAccess = true;
+            fullAccess = false;
             PresenceProtocolClient.onJoin(client);
         });
         ClientTickEvents.END_CLIENT_TICK.register(client -> AuctionScreen.tickAuction());
