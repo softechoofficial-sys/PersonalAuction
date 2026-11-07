@@ -32,7 +32,7 @@ public final class PresenceProtocolClient {
     private static net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource afkSource;
     private static volatile String popupOverlayText = "";
     private static volatile long popupOverlayUntil;
-    private static final long ONLINE_TIMEOUT_MILLIS = 75_000L;
+    private static final long ONLINE_TIMEOUT_MILLIS = 180_000L;
     private PresenceProtocolClient() {}
     public static void initialize() {}
 
@@ -76,7 +76,7 @@ public final class PresenceProtocolClient {
             pollTicks=0;
             poll(client);
         }
-        if (++presenceTicks >= 200) {
+        if (++presenceTicks >= 40) {
             presenceTicks=0;
             sendPresenceAndAfk(client);
         }
