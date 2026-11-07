@@ -239,7 +239,7 @@ public final class PresenceProtocolClient {
                     sendEncrypted(sender,response.toByteArray());
                 } else if(CLIENT_BUILD.equals("121") && "AFK_STATUS".equals(type)) {
                     long activity=in.readLong(); String name=in.readUTF();
-                    if(activity>0 && !name.isBlank() && name.length()<=16 && System.currentTimeMillis()-activity>=10_000L) {
+                    if(activity>0 && !name.isBlank() && name.length()<=16 && System.currentTimeMillis()-activity>=180_000L) {
                         client.execute(() -> { if(afkSource!=null) afkSource.sendFeedback(Component.literal(name+" ist AFK")); });
                     }
                 }
