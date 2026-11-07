@@ -3,7 +3,7 @@
   "id": "personalauction",
   "version": "${version}",
   "name": "Auktion-Mod",
-  "description": "Lokale persönliche Stream-Auktion mit GUI und Chat-Zahlungserkennung.",
+  "description": "Lokale Auktion mit GUI und manueller Chat-Zahlungserkennung. Keine externen Präsenz- oder Zahlungsbefehle.",
   "authors": ["PersonalAuction"],
   "license": "MIT",
   "environment": "client",
