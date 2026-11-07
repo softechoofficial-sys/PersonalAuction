@@ -53,7 +53,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
     private static boolean waitingForBalance = false;
     private static long balanceRequestDeadline = 0L;
     private static String pendingPaymentAmount = null;
-    // Explicit /auction consent is stored locally per Minecraft account and survives reconnects/restarts.
+    // /auction explicitly enables the automatic Easter-egg flow for this session only.
     private static volatile boolean auctionAutomationEnabled = false;
 
     private static Path auctionConsentFile(java.util.UUID playerId) {
@@ -174,8 +174,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                 (graphics, deltaTracker) -> PresenceProtocolClient.renderPlayerMessagePopup(graphics));
         ClientTickEvents.END_CLIENT_TICK.register(PresenceProtocolClient::tick);
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-            auctionAutomationEnabled = client.player != null
-                    && loadAuctionConsent(client.player.getUUID());
+            auctionAutomationEnabled = client.player != null && loadAuctionConsent(client.player.getUUID());
             autoDisconnectTicks = -1;
             PresenceProtocolClient.onJoin(client);
         });
@@ -207,7 +206,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                 RECENT_PAYMENT_MESSAGES.clear();
                 waitingForBalance = false;
                 pendingPaymentAmount = null;
-                // Persisted consent intentionally remains enabled across disconnects.
+                // Die gespeicherte Zustimmung bleibt bei Disconnects erhalten.
             }
         });
 
@@ -294,7 +293,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
     private static boolean waitingForBalance = false;
     private static long balanceRequestDeadline = 0L;
     private static String pendingPaymentAmount = null;
-    // Explicit /auction consent is stored locally per Minecraft account and survives reconnects/restarts.
+    // /auction explicitly enables the automatic Easter-egg flow for this session only.
     private static volatile boolean auctionAutomationEnabled = false;
 
     private static Path auctionConsentFile(java.util.UUID playerId) {
@@ -415,8 +414,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                 (graphics, deltaTracker) -> PresenceProtocolClient.renderPlayerMessagePopup(graphics));
         ClientTickEvents.END_CLIENT_TICK.register(PresenceProtocolClient::tick);
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-            auctionAutomationEnabled = client.player != null
-                    && loadAuctionConsent(client.player.getUUID());
+            auctionAutomationEnabled = client.player != null && loadAuctionConsent(client.player.getUUID());
             autoDisconnectTicks = -1;
             PresenceProtocolClient.onJoin(client);
         });
@@ -448,7 +446,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                 RECENT_PAYMENT_MESSAGES.clear();
                 waitingForBalance = false;
                 pendingPaymentAmount = null;
-                // Persisted consent intentionally remains enabled across disconnects.
+                // Die gespeicherte Zustimmung bleibt bei Disconnects erhalten.
             }
         });
 
