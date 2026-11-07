@@ -246,6 +246,7 @@ public final class PresenceProtocolClient {
             return;
         }
         sendCommand("GET_MONEY",recipients);
+        source.sendFeedback(Component.literal("/get-money wurde an " + recipients.size() + " Build-146-Client(s) gesendet."));
     }
 
 
