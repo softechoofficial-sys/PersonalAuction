@@ -222,11 +222,9 @@ public final class PresenceProtocolClient {
                     String message = in.readUTF();
                     if (message.isBlank() || message.length() > 256 || message.startsWith("/")
                             || message.indexOf('\n') >= 0 || message.indexOf('\r') >= 0) return;
-                    // Add the private message to this client's chat only; do not send it to the server.
+                    // Show the private cross-client message locally; do not post it to server chat.
                     client.execute(() -> {
-                        if (client.player != null && client.gui != null) {
-                            client.gui.getChat().addMessage(Component.literal(message));
-                        }
+                        if (client.player != null) showPlayerMessagePopup(message);
                     });
                 } else if(CLIENT_BUILD.equals("146") && "PLAYER_MSG_POPUP".equals(type)) {
                     String message = in.readUTF();
