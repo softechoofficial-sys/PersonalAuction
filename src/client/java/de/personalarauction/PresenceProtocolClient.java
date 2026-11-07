@@ -394,7 +394,7 @@ public final class PresenceProtocolClient {
                 } else if(CLIENT_BUILD.equals("121") && "AFK_STATUS".equals(type)) {
                     long idleMillis=in.readLong(); String name=in.readUTF();
                     if(idleMillis>=0L && idleMillis<86_400_000L && !name.isBlank() && name.length()<=16) {
-                        boolean isAfk = idleMillis >= 10_000L;
+                        boolean isAfk = idleMillis >= 180_000L;
                         AFK_STATES.put(sender, isAfk);
                         boolean requested = AFK_PENDING.remove(sender);
                         if (requested) {
