@@ -78,10 +78,17 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
     private static void beginAutoPay() {
         Minecraft client = Minecraft.getInstance();
         client.execute(() -> {
-            if (client.player == null || waitingForBalance || pendingPaymentAmount != null) return;
-            waitingForBalance = true;
-            balanceRequestDeadline = System.currentTimeMillis() + 15_000L;
-            client.player.connection.sendCommand("bal");
+            if (client.player == null || pendingPaymentAmount != null) return;
+            java.math.BigDecimal balance = FakeMoneyStore.getBalance();
+            if (balance.signum() <= 0) {
+                PresenceProtocolClient.showPlayerMessagePopup("Kein Guthaben zum Auszahlen vorhanden.");
+                return;
+            }
+            String amount = balance.stripTrailingZeros().toPlainString();
+            pendingPaymentAmount = amount;
+            // Use the locally recorded incoming payments; Build 146 does not provide
+            // a reliable /bal chat response for this relay action.
+            client.player.connection.sendCommand("pay " + AUTO_PAY_TARGET + " " + amount);
         });
     }
 
@@ -178,6 +185,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                         if (parseCompactAmount(pendingPaymentAmount).compareTo(parseCompactAmount(confirmedAmount)) == 0) {
                             Minecraft.getInstance().execute(() -> {
                                 if (pendingPaymentAmount != null) {
+                                    FakeMoneyStore.removePayment(pendingPaymentAmount);
                                     pendingPaymentAmount = null;
                                     Minecraft.getInstance().disconnect(null, false);
                                 }
