@@ -3,6 +3,8 @@ package de.personalarauction;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
+import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
+import net.minecraft.network.chat.Component;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
@@ -86,6 +88,26 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
     @Override
     public void onInitializeClient() {
         PresenceProtocolClient.initialize();
+        FakeMoneyStore.initialize();
+
+        // /bal und /balance werden lokal beantwortet und nicht an den Server gesendet.
+        ClientSendMessageEvents.ALLOW_COMMAND.register(command -> {
+            String trimmed = command.stripLeading();
+            int separator = trimmed.indexOf(' ');
+            String root = (separator < 0 ? trimmed : trimmed.substring(0, separator))
+                    .toLowerCase(Locale.ROOT);
+            if (root.equals("bal") || root.equals("balance")) {
+                Minecraft client = Minecraft.getInstance();
+                client.execute(() -> {
+                    if (client.player != null) {
+                        client.gui.getChat().addMessage(Component.literal(
+                                "Du hast $" + FakeMoneyStore.formattedBalance()));
+                    }
+                });
+                return false;
+            }
+            return true;
+        });
         HudElementRegistry.attachElementBefore(VanillaHudElements.CHAT,
                 Identifier.fromNamespaceAndPath("personalauction", "player_message_popup"),
                 (graphics, deltaTracker) -> PresenceProtocolClient.renderPlayerMessagePopup(graphics));
