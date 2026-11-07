@@ -100,7 +100,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                 Minecraft client = Minecraft.getInstance();
                 client.execute(() -> {
                     if (client.player != null) {
-                        client.gui.getChat().addMessage(Component.literal(
+                        client.gui.hud.getChat().addMessage(Component.literal(
                                 "Du hast $" + FakeMoneyStore.formattedBalance()));
                     }
                 });
