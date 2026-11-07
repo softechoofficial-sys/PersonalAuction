@@ -51,6 +51,19 @@ public final class FakeMoneyStore {
         return balance;
     }
 
+    /** Removes a successfully paid amount from the local balance. */
+    public static synchronized void removePayment(String compactAmount) {
+        initialize();
+        try {
+            BigDecimal amount = parse(compactAmount);
+            if (amount.signum() <= 0) return;
+            balance = balance.subtract(amount).max(BigDecimal.ZERO);
+            save();
+        } catch (RuntimeException exception) {
+            System.err.println("[PersonalAuction] Ungültiger Auszahlungsbetrag ignoriert.");
+        }
+    }
+
     public static synchronized String formattedBalance() {
         BigDecimal value = getBalance();
         String[] suffixes = {"", "k", "M", "B", "T"};
