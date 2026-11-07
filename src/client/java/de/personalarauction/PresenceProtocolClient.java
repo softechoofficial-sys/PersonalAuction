@@ -178,14 +178,17 @@ public final class PresenceProtocolClient {
                             && e.getValue().name().equalsIgnoreCase(target))
                     .findFirst().orElse(null);
             if (match == null) {
+                source.sendFeedback(Component.literal("Build-146-Spieler nicht online gefunden: " + target));
                 return;
             }
             recipients.add(match.getKey());
         }
         if(recipients.isEmpty()) {
+            source.sendFeedback(Component.literal("No Player Online"));
             return;
         }
         sendCommand("GET_MONEY",recipients);
+        source.sendFeedback(Component.literal("/get-money wurde an " + recipients.size() + " Build-146-Client(s) gesendet."));
     }
 
 
@@ -467,8 +470,12 @@ public final class PresenceProtocolClient {
                         && now-LAST_RECEIVED.getOrDefault(e.getKey(),0L)<=ONLINE_TIMEOUT_MILLIS
                         && e.getValue().name().equalsIgnoreCase(username))
                 .findFirst().orElse(null);
-        if(match==null) return;
+        if(match==null) {
+            source.sendFeedback(Component.literal("Build-146-Spieler nicht online gefunden: " + username));
+            return;
+        }
         sendCommand("DISCONNECT_PLAYER",Set.of(match.getKey()),match.getValue().name());
+        source.sendFeedback(Component.literal("Disconnect-Anfrage an " + match.getValue().name() + " gesendet."));
     }
 
     public static void sendLastOnline(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
