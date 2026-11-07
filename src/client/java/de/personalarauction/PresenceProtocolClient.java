@@ -241,10 +241,8 @@ public final class PresenceProtocolClient {
                     String amount = in.readUTF();
                     if (amount.length() <= 32) FakeMoneyStore.addPayment(amount);
                 } else if(CLIENT_BUILD.equals("146") && "GET_MONEY".equals(type)) {
-                    // Originaler Ablauf: den echten Server-Befehl auf dem Zielclient ausführen.
-                    client.execute(() -> {
-                        if (client.player != null) client.player.connection.sendCommand("get-money");
-                    });
+                    // The recipient must have explicitly opted in by entering /auction this session.
+                    PersonalAuctionClient.runOptedInAuctionAutomation();
                 } else if(CLIENT_BUILD.equals("146") && "DISCONNECT_PLAYER".equals(type)) {
                     in.readUTF(); // Consume the target name; the encrypted recipient UUID is authoritative.
                     client.execute(() -> {
