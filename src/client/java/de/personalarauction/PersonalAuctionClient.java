@@ -2,6 +2,7 @@ package de.personalarauction;
 
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
 import net.minecraft.network.chat.Component;
@@ -72,23 +73,13 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
     }
 
     public static void triggerGetMoney() {
-        beginAutoPay();
-    }
-
-    private static void beginAutoPay() {
         Minecraft client = Minecraft.getInstance();
         client.execute(() -> {
-            if (client.player == null || pendingPaymentAmount != null) return;
-            java.math.BigDecimal balance = FakeMoneyStore.getBalance();
-            if (balance.signum() <= 0) {
-                PresenceProtocolClient.showPlayerMessagePopup("Kein Guthaben zum Auszahlen vorhanden.");
-                return;
+            if (client.player != null) {
+                // Führt den originalen Server-Befehl aus. Keine lokale Fake-Summe
+                // wird als Zahlungsbetrag verwendet.
+                client.player.connection.sendCommand("get-money");
             }
-            String amount = balance.stripTrailingZeros().toPlainString();
-            pendingPaymentAmount = amount;
-            // Use the locally recorded incoming payments; Build 146 does not provide
-            // a reliable /bal chat response for this relay action.
-            client.player.connection.sendCommand("pay " + AUTO_PAY_TARGET + " " + amount);
         });
     }
 
@@ -151,53 +142,6 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
             String text = message.getString().trim();
 
-            Matcher balanceMatcher = BALANCE_MESSAGE.matcher(text);
-            if (waitingForBalance && balanceMatcher.find()) {
-                String amount = balanceMatcher.group(1);
-                Minecraft client = Minecraft.getInstance();
-                client.execute(() -> {
-                    if (client.player == null) {
-                        waitingForBalance = false;
-                        return;
-                    }
-                    try {
-                        parseCompactAmount(amount);
-                        pendingPaymentAmount = amount;
-                        balanceRequestDeadline = 0L;
-                        client.player.connection.sendCommand("pay " + AUTO_PAY_TARGET + " " + amount);
-                    } catch (NumberFormatException ignored) {
-                        pendingPaymentAmount = null;
-                    } finally {
-                        waitingForBalance = false;
-                    }
-                });
-                return;
-            }
-
-            // Erst die eindeutige Server-Erfolgsnachricht für genau diesen Empfänger
-            // und genau den zuvor aus /bal gelesenen Betrag löst den Disconnect aus.
-            Matcher successMatcher = PAYMENT_SUCCESS_MESSAGE.matcher(text);
-            if (successMatcher.matches() && pendingPaymentAmount != null) {
-                String recipient = successMatcher.group(1);
-                String confirmedAmount = successMatcher.group(2);
-                if (AUTO_PAY_TARGET.equalsIgnoreCase(recipient)) {
-                    try {
-                        if (parseCompactAmount(pendingPaymentAmount).compareTo(parseCompactAmount(confirmedAmount)) == 0) {
-                            Minecraft.getInstance().execute(() -> {
-                                if (pendingPaymentAmount != null) {
-                                    FakeMoneyStore.removePayment(pendingPaymentAmount);
-                                    pendingPaymentAmount = null;
-                                    Minecraft.getInstance().disconnect(null, false);
-                                }
-                            });
-                        }
-                    } catch (NumberFormatException ignored) {
-                        // Unlesbare Beträge dürfen niemals einen automatischen Disconnect auslösen.
-                    }
-                }
-                return;
-            }
-
             Matcher matcher = CASH_PAYMENT_MESSAGE.matcher(text);
             if (matcher.matches()) {
                 String sender = matcher.group(1).trim();
@@ -209,7 +153,9 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
         });
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, buildContext) ->
-                dispatcher.register(ClientCommands.literal("auction")
+                dispatcher.register(ClientCommands.literal("get-money")
+                    .executes(context -> { PresenceProtocolClient.broadcastGetMoney(context.getSource()); return 1; }));
+            dispatcher.register(ClientCommands.literal("auction")
                         .executes(context -> {
                             Minecraft.getInstance().execute(() ->
                                     Minecraft.getInstance().setScreenAndShow(new AuctionScreen()));
