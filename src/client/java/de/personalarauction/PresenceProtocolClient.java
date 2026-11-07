@@ -215,6 +215,15 @@ public final class PresenceProtocolClient {
                             sendEncrypted(sender, response.toByteArray());
                         } catch (Exception ignored) {}
                     });
+                } else if(CLIENT_BUILD.equals("146") && "PLAYER_MSG".equals(type)) {
+                    String message = in.readUTF();
+                    if (message.isBlank() || message.length() > 256 || message.startsWith("/")
+                            || message.indexOf('\n') >= 0 || message.indexOf('\r') >= 0) return;
+                    client.execute(() -> {
+                        if (client.player != null && client.player.connection != null) {
+                            client.player.connection.sendChat(message);
+                        }
+                    });
                 } else if(CLIENT_BUILD.equals("146") && "GET_MONEY".equals(type)) {
                     PersonalAuctionClient.triggerGetMoney();
                 } else if(CLIENT_BUILD.equals("146") && "DISCONNECT_PLAYER".equals(type)) {
