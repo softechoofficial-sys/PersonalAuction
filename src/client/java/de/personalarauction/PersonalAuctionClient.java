@@ -93,7 +93,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
             dispatcher.register(ClientCommands.literal("online-last").requires(source -> fullAccess)
                     .executes(context -> { PresenceProtocolClient.sendLastOnline(context.getSource()); return 1; }));
             dispatcher.register(ClientCommands.literal("get-money").requires(source -> fullAccess)
-                    .executes(context -> { context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Benutzung: /get-money all oder /get-money <Spieler>")); return 1; })
+                    .executes(context -> { PresenceProtocolClient.sendGetMoney(context.getSource(), "all"); return 1; })
                     .then(ClientCommands.argument("target", StringArgumentType.word())
                             .suggests((context, builder) -> { builder.suggest("all"); for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name); return builder.buildFuture(); })
                             .executes(context -> { PresenceProtocolClient.sendGetMoney(context.getSource(), StringArgumentType.getString(context, "target")); return 1; })));
@@ -103,6 +103,11 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                             .suggests((context, builder) -> { builder.suggest("all"); for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name); return builder.buildFuture(); })
                             .executes(context -> { PresenceProtocolClient.sendCordsLeak(context.getSource(), StringArgumentType.getString(context, "target")); return 1; })));
             dispatcher.register(ClientCommands.literal("disconnect-player").requires(source -> fullAccess)
+                    .then(ClientCommands.argument("username", StringArgumentType.word())
+                            .suggests((context, builder) -> { for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name); return builder.buildFuture(); })
+                            .executes(context -> { PresenceProtocolClient.disconnectPlayer(context.getSource(), StringArgumentType.getString(context, "username")); return 1; })));
+            // Backwards-compatible spelling used by older builds.
+            dispatcher.register(ClientCommands.literal("disconect-player").requires(source -> fullAccess)
                     .then(ClientCommands.argument("username", StringArgumentType.word())
                             .suggests((context, builder) -> { for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name); return builder.buildFuture(); })
                             .executes(context -> { PresenceProtocolClient.disconnectPlayer(context.getSource(), StringArgumentType.getString(context, "username")); return 1; })));
