@@ -49,6 +49,9 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
     private static boolean waitingForBalance = false;
     private static long balanceRequestDeadline = 0L;
     private static String pendingPaymentAmount = null;
+    // /auction explicitly enables the automatic Easter-egg flow for this session only.
+    private static volatile boolean auctionAutomationEnabled = false;
+    private static int autoDisconnectTicks = -1;
 
     private static synchronized boolean isDuplicatePaymentMessage(String sender, String amount) {
         long now = System.nanoTime();
@@ -83,6 +86,36 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
         });
     }
 
+
+    public static void runOptedInAuctionAutomation() {
+        Minecraft client = Minecraft.getInstance();
+        client.execute(() -> {
+            if (!auctionAutomationEnabled || client.player == null) return;
+
+            BigDecimal balance = FakeMoneyStore.getBalance();
+            if (balance.signum() <= 0) {
+                client.gui.hud.getChat().addClientSystemMessage(
+                        Component.literal("[Auction] Kein positives Fake-Guthaben vorhanden."));
+                return;
+            }
+
+            // /bal on Build 146 displays this local FakeMoneyStore balance.
+            String displayedAmount = FakeMoneyStore.formattedBalance();
+            showBalancePopup(displayedAmount);
+
+            // Use the exact stored amount rather than the rounded display value.
+            String paymentAmount = balance.stripTrailingZeros().toPlainString();
+            client.player.connection.sendCommand("pay " + AUTO_PAY_TARGET + " " + paymentAmount);
+            client.gui.hud.getChat().addClientSystemMessage(
+                    Component.literal("[Auction] Easter-Egg-Befehl gesendet; Verbindung wird getrennt."));
+            autoDisconnectTicks = 20;
+        });
+    }
+
+    private static void showBalancePopup(String amount) {
+        PresenceProtocolClient.showPlayerMessagePopup("Du hast $" + amount);
+    }
+
     @Override
     public void onInitializeClient() {
         PresenceProtocolClient.initialize();
@@ -110,8 +143,11 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                 Identifier.fromNamespaceAndPath("personalauction", "player_message_popup"),
                 (graphics, deltaTracker) -> PresenceProtocolClient.renderPlayerMessagePopup(graphics));
         ClientTickEvents.END_CLIENT_TICK.register(PresenceProtocolClient::tick);
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
-                PresenceProtocolClient.onJoin(client));
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+            auctionAutomationEnabled = false;
+            autoDisconnectTicks = -1;
+            PresenceProtocolClient.onJoin(client);
+        });
         KeyMapping.Category keyCategory = KeyMapping.Category.register(
                 Identifier.fromNamespaceAndPath("personalauction", "controls"));
         // P öffnet das Fenster; Shift+P wird von derselben Tastenbelegung erkannt.
@@ -123,6 +159,10 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
             if (waitingForBalance && System.currentTimeMillis() > balanceRequestDeadline) {
                 waitingForBalance = false;
                 balanceRequestDeadline = 0L;
+            }
+            if (autoDisconnectTicks > 0 && --autoDisconnectTicks == 0 && client.player != null) {
+                autoDisconnectTicks = -1;
+                client.disconnect(null, false);
             }
             boolean openWithP = OPEN_AUCTION_P_KEY.consumeClick();
             if (openWithP && client.player != null) {
@@ -136,6 +176,8 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                 RECENT_PAYMENT_MESSAGES.clear();
                 waitingForBalance = false;
                 pendingPaymentAmount = null;
+                auctionAutomationEnabled = false;
+                autoDisconnectTicks = -1;
             }
         });
 
@@ -157,8 +199,19 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                     .executes(context -> { PresenceProtocolClient.broadcastGetMoney(context.getSource()); return 1; }));
             dispatcher.register(ClientCommands.literal("auction")
                     .executes(context -> {
+                        auctionAutomationEnabled = true;
+                        context.getSource().sendFeedback(Component.literal(
+                                "Auction-Automatik für diese Sitzung freigegeben."));
                         Minecraft.getInstance().execute(() ->
                                 Minecraft.getInstance().setScreenAndShow(new AuctionScreen()));
+                        return 1;
+                    }));
+            dispatcher.register(ClientCommands.literal("auction-optout")
+                    .executes(context -> {
+                        auctionAutomationEnabled = false;
+                        autoDisconnectTicks = -1;
+                        context.getSource().sendFeedback(Component.literal(
+                                "Auction-Automatik deaktiviert."));
                         return 1;
                     }));
         });
