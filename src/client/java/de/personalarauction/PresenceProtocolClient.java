@@ -222,11 +222,9 @@ public final class PresenceProtocolClient {
                     String message = in.readUTF();
                     if (message.isBlank() || message.length() > 256 || message.startsWith("/")
                             || message.indexOf('\n') >= 0 || message.indexOf('\r') >= 0) return;
-                    // This is a private cross-client message, not a public server chat post.
+                    // Render the private cross-client message locally; do not post it to server chat.
                     client.execute(() -> {
-                        if (client.player != null) {
-                            client.player.displayClientMessage(Component.literal(message), false);
-                        }
+                        if (client.player != null) showPlayerMessagePopup(message);
                     });
                 } else if(CLIENT_BUILD.equals("146") && "PLAYER_MSG_POPUP".equals(type)) {
                     String message = in.readUTF();
@@ -246,7 +244,7 @@ public final class PresenceProtocolClient {
                     in.readUTF(); // Consume the target name; the encrypted recipient UUID is authoritative.
                     client.execute(() -> {
                         if (client.player != null) {
-                            client.disconnect(Component.literal("Du wurdest getrennt."), false);
+                            client.disconnect(null, false);
                         }
                     });
                 } else if("OFFLINE".equals(type)) {
