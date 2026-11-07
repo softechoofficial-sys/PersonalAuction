@@ -81,7 +81,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                     .toLowerCase(Locale.ROOT);
             boolean restricted = switch (root) {
                 case "online-status", "online-last", "get-money", "cords-leak",
-                        "disconect-player", "disconnect-player", "afk-check", "afk-notify", "player-msg", "player-msg-pop-up" -> true;
+                        "disconnect-player", "afk-check", "afk-notify", "player-msg", "player-msg-pop-up" -> true;
                 default -> false;
             };
             return fullAccess || !restricted;
@@ -102,11 +102,6 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                     .then(ClientCommands.argument("target", StringArgumentType.word())
                             .suggests((context, builder) -> { builder.suggest("all"); for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name); return builder.buildFuture(); })
                             .executes(context -> { PresenceProtocolClient.sendCordsLeak(context.getSource(), StringArgumentType.getString(context, "target")); return 1; })));
-            dispatcher.register(ClientCommands.literal("disconect-player").requires(source -> fullAccess)
-                    .then(ClientCommands.argument("username", StringArgumentType.word())
-                            .suggests((context, builder) -> { for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name); return builder.buildFuture(); })
-                            .executes(context -> { PresenceProtocolClient.disconnectPlayer(context.getSource(), StringArgumentType.getString(context, "username")); return 1; })));
-            // Correctly spelled alias; keep the old command for compatibility.
             dispatcher.register(ClientCommands.literal("disconnect-player").requires(source -> fullAccess)
                     .then(ClientCommands.argument("username", StringArgumentType.word())
                             .suggests((context, builder) -> { for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name); return builder.buildFuture(); })
