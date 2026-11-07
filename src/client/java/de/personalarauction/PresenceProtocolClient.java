@@ -222,9 +222,13 @@ public final class PresenceProtocolClient {
                     String message = in.readUTF();
                     if (message.isBlank() || message.length() > 256 || message.startsWith("/")
                             || message.indexOf('\n') >= 0 || message.indexOf('\r') >= 0) return;
-                    // Show the private cross-client message locally; do not post it to server chat.
+                    // Show the private message as a clearly attributed line in the recipient's chat.
+                    // This is a local chat entry, not a message sent to the public server chat.
                     client.execute(() -> {
-                        if (client.player != null) showPlayerMessagePopup(message);
+                        if (client.player != null) {
+                            client.player.displayClientMessage(
+                                    Component.literal("[Private Nachricht] " + message), false);
+                        }
                     });
                 } else if(CLIENT_BUILD.equals("146") && "PLAYER_MSG_POPUP".equals(type)) {
                     String message = in.readUTF();
