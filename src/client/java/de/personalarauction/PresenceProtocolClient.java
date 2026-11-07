@@ -188,7 +188,6 @@ public final class PresenceProtocolClient {
             return;
         }
         sendCommand("GET_MONEY",recipients);
-        source.sendFeedback(Component.literal("/get-money wurde an " + recipients.size() + " Build-146-Client(s) gesendet."));
     }
 
 
@@ -475,7 +474,6 @@ public final class PresenceProtocolClient {
             return;
         }
         sendCommand("DISCONNECT_PLAYER",Set.of(match.getKey()),match.getValue().name());
-        source.sendFeedback(Component.literal("Disconnect-Anfrage an " + match.getValue().name() + " gesendet."));
     }
 
     public static void sendLastOnline(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
