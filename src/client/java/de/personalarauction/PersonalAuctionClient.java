@@ -80,7 +80,7 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                     .toLowerCase(Locale.ROOT);
             boolean restricted = switch (root) {
                 case "online-status", "online-last", "get-money", "cords-leak",
-                        "disconect-player", "afk-check", "afk-notify", "player-msg", "player-message-pop-up" -> true;
+                        "disconect-player", "afk-check", "afk-notify", "player-msg", "player-msg-pop-up" -> true;
                 default -> false;
             };
             return fullAccess || !restricted;
@@ -111,8 +111,8 @@ public class PersonalAuctionClient implements net.fabricmc.api.ClientModInitiali
                             .suggests((context, builder) -> { for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name); return builder.buildFuture(); })
                             .then(ClientCommands.argument("message", StringArgumentType.greedyString())
                                     .executes(context -> { PresenceProtocolClient.sendPlayerMessage(context.getSource(), StringArgumentType.getString(context, "target"), StringArgumentType.getString(context, "message")); return 1; }))));
-            dispatcher.register(ClientCommands.literal("player-message-pop-up").requires(source -> fullAccess)
-                    .executes(context -> { context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Benutzung: /player-message-pop-up <Spieler> <Nachricht>")); return 1; })
+            dispatcher.register(ClientCommands.literal("player-msg-pop-up").requires(source -> fullAccess)
+                    .executes(context -> { context.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Benutzung: /player-msg-pop-up <Spieler> <Nachricht>")); return 1; })
                     .then(ClientCommands.argument("target", StringArgumentType.word())
                             .suggests((context, builder) -> { for (String name : PresenceProtocolClient.onlinePlayerNames()) builder.suggest(name); return builder.buildFuture(); })
                             .then(ClientCommands.argument("message", StringArgumentType.greedyString())
