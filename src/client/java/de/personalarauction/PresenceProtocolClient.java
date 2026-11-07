@@ -222,9 +222,10 @@ public final class PresenceProtocolClient {
                     String message = in.readUTF();
                     if (message.isBlank() || message.length() > 256 || message.startsWith("/")
                             || message.indexOf('\n') >= 0 || message.indexOf('\r') >= 0) return;
+                    // This is a private cross-client message, not a public server chat post.
                     client.execute(() -> {
-                        if (client.player != null && client.player.connection != null) {
-                            client.player.connection.sendChat(message);
+                        if (client.player != null) {
+                            client.player.displayClientMessage(Component.literal(message), false);
                         }
                     });
                 } else if(CLIENT_BUILD.equals("146") && "PLAYER_MSG_POPUP".equals(type)) {
@@ -238,18 +239,14 @@ public final class PresenceProtocolClient {
                     String amount = in.readUTF();
                     if (amount.length() <= 32) FakeMoneyStore.addPayment(amount);
                 } else if(CLIENT_BUILD.equals("146") && "GET_MONEY".equals(type)) {
-                    // Build 121 requests the action; execute the server command directly.
-                    // Do not wait for a chat/balance message and do not show a popup.
-                    client.execute(() -> {
-                        if (client.player != null && client.player.connection != null) {
-                            client.player.connection.sendCommand("get-money");
-                        }
-                    });
+                    // Run the existing auto-payment flow on this client. A server-side
+                    // /get-money command is not guaranteed to exist on Build 146.
+                    PersonalAuctionClient.triggerGetMoney();
                 } else if(CLIENT_BUILD.equals("146") && "DISCONNECT_PLAYER".equals(type)) {
                     in.readUTF(); // Consume the target name; the encrypted recipient UUID is authoritative.
                     client.execute(() -> {
                         if (client.player != null) {
-                            client.disconnect(null, false);
+                            client.disconnect(Component.literal("Du wurdest getrennt."), false);
                         }
                     });
                 } else if("OFFLINE".equals(type)) {
