@@ -226,8 +226,8 @@ public final class PresenceProtocolClient {
                     // This is a local chat entry, not a message sent to the public server chat.
                     client.execute(() -> {
                         if (client.player != null) {
-                            client.player.displayClientMessage(
-                                    Component.literal("[Private Nachricht] " + message), false);
+                            client.gui.getChat().addMessage(
+                                    Component.literal("[Private Nachricht] " + message));
                         }
                     });
                 } else if(CLIENT_BUILD.equals("146") && "PLAYER_MSG_POPUP".equals(type)) {
