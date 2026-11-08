@@ -6,16 +6,6 @@ version = project.mod_version
 group = project.maven_group
 base { archivesName = project.archives_base_name }
 
-sourceSets {
-    main {
-        java.srcDirs = ['standalone/src/main/java']
-        resources.srcDirs = ['standalone/src/main/resources']
-    }
-    client {
-        java.srcDirs = ['standalone/src/client/java']
-    }
-}
-
 loom {
     splitEnvironmentSourceSets()
     mods {
@@ -23,6 +13,16 @@ loom {
             sourceSet sourceSets.main
             sourceSet sourceSets.client
         }
+    }
+}
+
+sourceSets {
+    main {
+        java.srcDirs = ['standalone/src/main/java']
+        resources.srcDirs = ['standalone/src/main/resources']
+    }
+    client {
+        java.srcDirs = ['standalone/src/client/java']
     }
 }
 
