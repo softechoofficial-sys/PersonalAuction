@@ -1,10 +1,10 @@
-name: Build PersonalAuction
+name: Build Standalone Auction GUI
 
 on:
   push:
-    branches: [ main, "fix/**" ]
+    branches: ["fix/standalone-auction-gui"]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -13,27 +13,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Java 25
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '25'
-
       - name: Set up Gradle 9.5.1
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.5.1'
-
       - name: Build Mod
         run: gradle build --no-daemon
-
-      - name: Upload JAR
+      - name: Upload standalone JARs
         uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: PersonalAuction
-          path: build/libs/Auktion-Mod-*.jar
+          name: StandaloneAuction
+          path: build/libs/StandaloneAuction-*.jar
           if-no-files-found: error
-
-# Build without ProGuard to preserve valid Fabric bytecode.
