@@ -1,28 +1,42 @@
 plugins {
     id 'net.fabricmc.fabric-loom' version '1.17.21'
 }
+
 version = project.mod_version
 group = project.maven_group
 base { archivesName = project.archives_base_name }
 
+sourceSets {
+    main {
+        java.srcDirs = ['standalone/src/main/java']
+        resources.srcDirs = ['standalone/src/main/resources']
+    }
+    client {
+        java.srcDirs = ['standalone/src/client/java']
+    }
+}
+
 loom {
     splitEnvironmentSourceSets()
     mods {
-        "personalauction" {
+        "standaloneauction" {
             sourceSet sourceSets.main
             sourceSet sourceSets.client
         }
     }
 }
+
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 }
+
 processResources {
     inputs.property "version", project.version
     filesMatching("fabric.mod.json") { expand "version": project.version }
 }
+
 java {
     toolchain { languageVersion = JavaLanguageVersion.of(25) }
     withSourcesJar()
